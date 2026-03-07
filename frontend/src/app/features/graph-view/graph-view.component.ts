@@ -39,7 +39,7 @@ const EDGE_LABELS: Record<ConnectionType, string> = {
   PARALLEL:     'Parallel',
 };
 
-const INFERRED_COLOR = '#cbd5e1';
+const INFERRED_COLOR = '#64748b';
 const WARNING_COLOR  = '#f59e0b';
 
 @Component({
@@ -309,7 +309,7 @@ const WARNING_COLOR  = '#f59e0b';
     .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #475569; }
     .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
     .legend-line { display: inline-block; width: 24px; height: 2px; border-radius: 1px; }
-    .inferred-line { border-top: 2px dashed #cbd5e1; background: transparent; }
+    .inferred-line { border-top: 2px dashed #64748b; background: transparent; }
     .warning-line { background: #f59e0b; }
   `]
 })
@@ -508,9 +508,9 @@ export class GraphViewComponent implements OnInit, AfterViewInit, OnDestroy {
           selector: 'edge[?inferred]',
           style: {
             'line-style': 'dashed' as any,
-            'line-dash-pattern': [6, 3] as any,
-            'width': 1,
-            'opacity': 0.5,
+            'line-dash-pattern': [8, 4] as any,
+            'width': 2.5,
+            'opacity': 0.85,
             'target-arrow-shape': 'triangle' as any,
             'font-size': 0
           }
