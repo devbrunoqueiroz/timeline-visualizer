@@ -1,8 +1,8 @@
 package com.chronicle.application;
 
 import com.chronicle.application.shared.DomainEventPublisher;
-import com.chronicle.application.timeline.CreateTimeline.CreateTimelineCommand;
-import com.chronicle.application.timeline.CreateTimeline.CreateTimelineUseCase;
+import com.chronicle.application.timeline.createtimeline.CreateTimelineCommand;
+import com.chronicle.application.timeline.createtimeline.CreateTimelineUseCase;
 import com.chronicle.domain.timeline.Timeline;
 import com.chronicle.domain.timeline.TimelineRepository;
 import com.chronicle.domain.timeline.TimelineVisibility;
