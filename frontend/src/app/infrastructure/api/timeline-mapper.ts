@@ -133,9 +133,11 @@ export class TimelineMapper {
         id: e.id,
         sourceEventId: e.sourceEventId,
         targetEventId: e.targetEventId,
-        connectionType: e.connectionType as ConnectionType,
-        description: e.description
-      }) as GraphEdge)
+        connectionType: e.connectionType as ConnectionType ?? null,
+        description: e.description ?? null,
+        inferred: e.inferred ?? false
+      }) as GraphEdge),
+      validations: dto.validations ?? []
     };
   }
 }

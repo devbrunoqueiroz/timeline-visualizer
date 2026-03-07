@@ -6,17 +6,18 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { TimelineApiService } from '../../infrastructure/api/timeline-api.service';
-import { ConnectionType, EventGraphResponse, GraphEdge, GraphNode } from '../../domain/timeline.model';
+import {
+  ConnectionType, EventGraphResponse, GraphEdge, GraphNode,
+  NarrativeValidation
+} from '../../domain/timeline.model';
 
 const TIMELINE_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#84cc16'];
 
 const EDGE_COLORS: Record<ConnectionType, string> = {
-  // Original
   CAUSAL:       '#6366f1',
   TEMPORAL:     '#3b82f6',
   REFERENCE:    '#10b981',
   CONTRAST:     '#f59e0b',
-  // Narrative enrichment
   PREREQUISITE: '#8b5cf6',
   FORESHADOW:   '#06b6d4',
   REVEAL:       '#ec4899',
@@ -37,6 +38,9 @@ const EDGE_LABELS: Record<ConnectionType, string> = {
   RESOLUTION:   'Resolution',
   PARALLEL:     'Parallel',
 };
+
+const INFERRED_COLOR = '#cbd5e1';
+const WARNING_COLOR  = '#f59e0b';
 
 @Component({
   selector: 'app-graph-view',
@@ -59,6 +63,14 @@ const EDGE_LABELS: Record<ConnectionType, string> = {
             </label>
           }
           <button class="fit-btn" (click)="fitGraph()">Fit</button>
+          <button class="warnings-btn"
+                  [class.active]="showWarnings()"
+                  (click)="toggleWarnings()">
+            ⚠ Inconsistencies
+            @if (warningCount > 0) {
+              <span class="badge">{{ warningCount }}</span>
+            }
+          </button>
         </div>
       </header>
 
@@ -83,15 +95,57 @@ const EDGE_LABELS: Record<ConnectionType, string> = {
             <div class="detail-connections">
               <strong>Connections:</strong>
               @for (edge of edgesForSelected(); track edge.id) {
-                <div class="edge-item" [style.border-left-color]="edgeColor(edge.connectionType)">
-                  <span class="edge-type" [style.color]="edgeColor(edge.connectionType)">{{ edgeLabel(edge.connectionType) }}</span>
+                <div class="edge-item" [style.border-left-color]="edgeColor(edge.connectionType!)"
+                     [class.has-warning]="edgeWarnings(edge.id).length > 0">
+                  <div class="edge-header">
+                    <span class="edge-type" [style.color]="edgeColor(edge.connectionType!)">
+                      {{ edgeLabel(edge.connectionType!) }}
+                    </span>
+                    @if (edgeWarnings(edge.id).length > 0) {
+                      <span class="warning-badge">⚠</span>
+                    }
+                  </div>
                   <span class="edge-target">→ {{ nodeTitle(edge.targetEventId) }}</span>
                   @if (edge.description) {
                     <div class="edge-desc">{{ edge.description }}</div>
                   }
+                  @for (w of edgeWarnings(edge.id); track w.connectionId + w.message) {
+                    <div class="edge-warning">
+                      <div class="warning-msg">{{ w.message }}</div>
+                      @if (w.suggestedFix) {
+                        <div class="warning-fix">💡 {{ w.suggestedFix }}</div>
+                      }
+                    </div>
+                  }
                 </div>
               }
             </div>
+          </aside>
+        }
+
+        @if (showWarnings() && warningCount > 0) {
+          <aside class="warnings-panel">
+            <div class="warnings-header">
+              <span>⚠ Narrative Inconsistencies ({{ warningCount }})</span>
+              <button class="close-btn" (click)="showWarnings.set(false)">✕</button>
+            </div>
+            @for (v of allValidations; track v.connectionId + v.message) {
+              <div class="validation-item" [class.severity-warning]="v.severity === 'WARNING'">
+                <div class="validation-conn">
+                  <span class="conn-from">{{ nodeTitle(edgeById(v.connectionId)?.sourceEventId ?? '') }}</span>
+                  <span class="conn-arrow"> → </span>
+                  <span class="conn-type" [style.color]="edgeColor(edgeById(v.connectionId)?.connectionType!)">
+                    {{ edgeLabel(edgeById(v.connectionId)?.connectionType!) }}
+                  </span>
+                  <span class="conn-arrow"> → </span>
+                  <span class="conn-to">{{ nodeTitle(edgeById(v.connectionId)?.targetEventId ?? '') }}</span>
+                </div>
+                <div class="validation-msg">{{ v.message }}</div>
+                @if (v.suggestedFix) {
+                  <div class="validation-fix">💡 {{ v.suggestedFix }}</div>
+                }
+              </div>
+            }
           </aside>
         }
 
@@ -108,6 +162,16 @@ const EDGE_LABELS: Record<ConnectionType, string> = {
           <div class="legend-item">
             <span class="legend-dot" [style.background]="entry.color"></span>
             {{ entry.name }}
+          </div>
+        }
+        <div class="legend-item">
+          <span class="legend-line inferred-line"></span>
+          Timeline order
+        </div>
+        @if (warningCount > 0) {
+          <div class="legend-item">
+            <span class="legend-line warning-line"></span>
+            Inconsistency
           </div>
         }
       </div>
@@ -150,6 +214,19 @@ const EDGE_LABELS: Record<ConnectionType, string> = {
     }
     .fit-btn:hover { background: #4f46e5; }
 
+    .warnings-btn {
+      padding: 6px 14px; background: #fff7ed; color: #92400e; border: 1.5px solid #fcd34d;
+      border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; gap: 6px; transition: background 0.15s;
+    }
+    .warnings-btn.active { background: #fef3c7; border-color: #f59e0b; }
+    .warnings-btn:hover { background: #fef3c7; }
+
+    .badge {
+      background: #f59e0b; color: white; border-radius: 10px;
+      padding: 1px 6px; font-size: 11px; font-weight: 700;
+    }
+
     .graph-body { flex: 1; position: relative; overflow: hidden; display: flex; }
 
     .cy-container { flex: 1; height: 100%; }
@@ -159,10 +236,33 @@ const EDGE_LABELS: Record<ConnectionType, string> = {
       padding: 20px; overflow-y: auto; position: relative; flex-shrink: 0;
     }
 
+    .warnings-panel {
+      width: 340px; background: #fffbeb; border-left: 1px solid #fcd34d;
+      padding: 0; overflow-y: auto; position: relative; flex-shrink: 0;
+    }
+    .warnings-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 16px; background: #fef3c7; border-bottom: 1px solid #fcd34d;
+      font-size: 13px; font-weight: 700; color: #92400e; position: sticky; top: 0;
+    }
+
+    .validation-item {
+      padding: 12px 16px; border-bottom: 1px solid #fde68a;
+    }
+    .validation-conn {
+      font-size: 11px; color: #78350f; margin-bottom: 4px; display: flex; flex-wrap: wrap; gap: 2px; align-items: center;
+    }
+    .conn-from, .conn-to { font-weight: 600; }
+    .conn-arrow { color: #92400e; }
+    .conn-type { font-weight: 700; font-size: 10px; }
+    .validation-msg { font-size: 12px; color: #451a03; line-height: 1.5; margin-bottom: 4px; }
+    .validation-fix { font-size: 11px; color: #92400e; font-style: italic; }
+
     .close-btn {
       position: absolute; top: 12px; right: 12px; background: none; border: none;
       font-size: 16px; cursor: pointer; color: #94a3b8; padding: 2px 6px;
     }
+    .warnings-panel .close-btn { position: static; }
     .close-btn:hover { color: #475569; }
 
     .detail-timeline { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
@@ -181,9 +281,19 @@ const EDGE_LABELS: Record<ConnectionType, string> = {
       border-left: 3px solid; padding: 6px 10px; margin-bottom: 6px;
       background: #f8fafc; border-radius: 0 4px 4px 0;
     }
-    .edge-type { font-size: 10px; font-weight: 700; text-transform: uppercase; display: block; }
-    .edge-target { font-size: 12px; color: #0f172a; }
+    .edge-item.has-warning { background: #fffbeb; border-left-color: #f59e0b !important; }
+    .edge-header { display: flex; align-items: center; gap: 6px; }
+    .edge-type { font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .edge-target { font-size: 12px; color: #0f172a; display: block; }
     .edge-desc { font-size: 11px; color: #64748b; margin-top: 3px; font-style: italic; }
+    .warning-badge { font-size: 12px; color: #f59e0b; }
+
+    .edge-warning {
+      margin-top: 6px; padding: 6px 8px; background: #fef3c7;
+      border-radius: 4px; border-left: 2px solid #f59e0b;
+    }
+    .warning-msg { font-size: 11px; color: #78350f; line-height: 1.4; }
+    .warning-fix { font-size: 10px; color: #92400e; margin-top: 3px; font-style: italic; }
 
     .loading-overlay, .error-overlay {
       position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
@@ -198,6 +308,9 @@ const EDGE_LABELS: Record<ConnectionType, string> = {
     }
     .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #475569; }
     .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .legend-line { display: inline-block; width: 24px; height: 2px; border-radius: 1px; }
+    .inferred-line { border-top: 2px dashed #cbd5e1; background: transparent; }
+    .warning-line { background: #f59e0b; }
   `]
 })
 export class GraphViewComponent implements OnInit, AfterViewInit, OnDestroy {
@@ -210,14 +323,16 @@ export class GraphViewComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
   readonly selectedNode = signal<GraphNode | null>(null);
+  readonly showWarnings = signal(false);
   readonly activeTypes = signal<Set<ConnectionType>>(new Set([
     'CAUSAL', 'TEMPORAL', 'REFERENCE', 'CONTRAST',
     'PREREQUISITE', 'FORESHADOW', 'REVEAL', 'ESCALATION', 'RESOLUTION', 'PARALLEL'
   ] as ConnectionType[]));
 
-  private graph: EventGraphResponse = { nodes: [], edges: [] };
+  private graph: EventGraphResponse = { nodes: [], edges: [], validations: [] };
   private cy: any = null;
   private timelineColorMap = new Map<string, string>();
+  private validationMap = new Map<string, NarrativeValidation[]>();
 
   readonly connectionTypes: ConnectionType[] = [
     'CAUSAL', 'TEMPORAL', 'REFERENCE', 'CONTRAST',
@@ -226,11 +341,19 @@ export class GraphViewComponent implements OnInit, AfterViewInit, OnDestroy {
 
   readonly timelineLegend = signal<{ id: string; name: string; color: string }[]>([]);
 
+  get warningCount(): number {
+    return this.graph.validations?.length ?? 0;
+  }
+
+  get allValidations(): NarrativeValidation[] {
+    return this.graph.validations ?? [];
+  }
+
   readonly edgesForSelected = computed(() => {
     const node = this.selectedNode();
     if (!node) return [];
     return this.graph.edges.filter(
-      e => e.sourceEventId === node.id && this.activeTypes().has(e.connectionType)
+      e => !e.inferred && e.sourceEventId === node.id && this.activeTypes().has(e.connectionType!)
     );
   });
 
@@ -240,8 +363,12 @@ export class GraphViewComponent implements OnInit, AfterViewInit, OnDestroy {
       next: g => {
         this.graph = g;
         this.buildColorMap();
+        this.buildValidationMap();
         this.loading.set(false);
         this.renderGraph();
+        if (this.warningCount > 0) {
+          this.showWarnings.set(true);
+        }
       },
       error: () => {
         this.error.set('Failed to load graph data.');
@@ -250,9 +377,7 @@ export class GraphViewComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  ngAfterViewInit(): void {
-    // cy is initialized after data loads in renderGraph()
-  }
+  ngAfterViewInit(): void {}
 
   ngOnDestroy(): void {
     this.cy?.destroy();
@@ -271,6 +396,15 @@ export class GraphViewComponent implements OnInit, AfterViewInit, OnDestroy {
     this.timelineLegend.set(legend);
   }
 
+  private buildValidationMap(): void {
+    this.validationMap.clear();
+    for (const v of this.graph.validations ?? []) {
+      const list = this.validationMap.get(v.connectionId) ?? [];
+      list.push(v);
+      this.validationMap.set(v.connectionId, list);
+    }
+  }
+
   private async renderGraph(): Promise<void> {
     if (!this.containerRef) return;
 
@@ -287,7 +421,9 @@ export class GraphViewComponent implements OnInit, AfterViewInit, OnDestroy {
     cytoscape.use(cytoscapeDagre as any);
 
     const active = this.activeTypes();
-    const visibleEdges = this.graph.edges.filter(e => active.has(e.connectionType));
+    const visibleEdges = this.graph.edges.filter(
+      e => e.inferred || (e.connectionType != null && active.has(e.connectionType))
+    );
 
     const elements = [
       ...this.graph.nodes.map(n => ({
@@ -299,15 +435,25 @@ export class GraphViewComponent implements OnInit, AfterViewInit, OnDestroy {
           color: this.timelineColorMap.get(n.timelineId) ?? '#6366f1'
         }
       })),
-      ...visibleEdges.map(e => ({
-        data: {
-          id: e.id,
-          source: e.sourceEventId,
-          target: e.targetEventId,
-          label: EDGE_LABELS[e.connectionType] ?? e.connectionType,
-          color: EDGE_COLORS[e.connectionType]
-        }
-      }))
+      ...visibleEdges.map(e => {
+        const hasWarning = !e.inferred && this.validationMap.has(e.id);
+        const color = e.inferred
+          ? INFERRED_COLOR
+          : hasWarning
+            ? WARNING_COLOR
+            : (EDGE_COLORS[e.connectionType!] ?? '#94a3b8');
+        return {
+          data: {
+            id: e.id,
+            source: e.sourceEventId,
+            target: e.targetEventId,
+            label: e.inferred ? '' : (EDGE_LABELS[e.connectionType!] ?? e.connectionType ?? ''),
+            color,
+            inferred: e.inferred,
+            hasWarning
+          }
+        };
+      })
     ];
 
     this.cy?.destroy();
@@ -356,6 +502,24 @@ export class GraphViewComponent implements OnInit, AfterViewInit, OnDestroy {
             'text-background-opacity': 1,
             'text-background-padding': '2px'
           }
+        },
+        {
+          selector: 'edge[?inferred]',
+          style: {
+            'line-style': 'dashed' as any,
+            'line-dash-pattern': [6, 3] as any,
+            'width': 1,
+            'opacity': 0.5,
+            'target-arrow-shape': 'triangle' as any,
+            'font-size': 0
+          }
+        },
+        {
+          selector: 'edge[?hasWarning]',
+          style: {
+            'width': 2.5,
+            'line-style': 'solid' as any
+          }
         }
       ],
       layout: {
@@ -381,6 +545,10 @@ export class GraphViewComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  toggleWarnings(): void {
+    this.showWarnings.update(v => !v);
+  }
+
   toggleType(type: ConnectionType): void {
     this.activeTypes.update(set => {
       const next = new Set(set);
@@ -395,12 +563,12 @@ export class GraphViewComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cy?.fit(undefined, 40);
   }
 
-  edgeColor(type: ConnectionType): string {
-    return EDGE_COLORS[type] ?? '#94a3b8';
+  edgeColor(type: ConnectionType | null): string {
+    return type ? (EDGE_COLORS[type] ?? '#94a3b8') : INFERRED_COLOR;
   }
 
-  edgeLabel(type: ConnectionType): string {
-    return EDGE_LABELS[type] ?? type;
+  edgeLabel(type: ConnectionType | null): string {
+    return type ? (EDGE_LABELS[type] ?? type) : '';
   }
 
   nodeColor(timelineId: string): string {
@@ -409,5 +577,13 @@ export class GraphViewComponent implements OnInit, AfterViewInit, OnDestroy {
 
   nodeTitle(eventId: string): string {
     return this.graph.nodes.find(n => n.id === eventId)?.title ?? eventId;
+  }
+
+  edgeWarnings(edgeId: string): NarrativeValidation[] {
+    return this.validationMap.get(edgeId) ?? [];
+  }
+
+  edgeById(connectionId: string): GraphEdge | undefined {
+    return this.graph.edges.find(e => e.id === connectionId);
   }
 }

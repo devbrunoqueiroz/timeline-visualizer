@@ -90,11 +90,20 @@ export interface GraphEdgeDto {
   id: string;
   sourceEventId: string;
   targetEventId: string;
-  connectionType: string;
-  description: string;
+  connectionType: string | null;
+  description: string | null;
+  inferred: boolean;
+}
+
+export interface NarrativeValidationDto {
+  connectionId: string;
+  severity: 'INFO' | 'WARNING';
+  message: string;
+  suggestedFix: string | null;
 }
 
 export interface EventGraphDto {
   nodes: GraphNodeDto[];
   edges: GraphEdgeDto[];
+  validations: NarrativeValidationDto[];
 }

@@ -4,6 +4,7 @@ import com.chronicle.application.connection.createconnection.CreateConnectionUse
 import com.chronicle.application.connection.deleteconnection.DeleteConnectionUseCase;
 import com.chronicle.application.connection.listconnections.ListConnectionsUseCase;
 import com.chronicle.application.graph.geteventgraph.GetEventGraphUseCase;
+import com.chronicle.application.narrative.NarrativeValidationService;
 import com.chronicle.application.shared.DomainEventPublisher;
 import com.chronicle.application.timeline.addeventtotimeline.AddEventToTimelineUseCase;
 import com.chronicle.application.timeline.createtimeline.CreateTimelineUseCase;
@@ -25,6 +26,11 @@ public class UseCaseConfig {
     @Bean
     public TimelineMapper timelineMapper() {
         return new TimelineMapper();
+    }
+
+    @Bean
+    public NarrativeValidationService narrativeValidationService() {
+        return new NarrativeValidationService();
     }
 
     @Bean
@@ -68,8 +74,10 @@ public class UseCaseConfig {
     }
 
     @Bean
-    public CreateConnectionUseCase createConnectionUseCase(ConnectionRepository repo) {
-        return new CreateConnectionUseCase(repo);
+    public CreateConnectionUseCase createConnectionUseCase(ConnectionRepository connectionRepo,
+                                                            TimelineRepository timelineRepo,
+                                                            NarrativeValidationService validationService) {
+        return new CreateConnectionUseCase(connectionRepo, timelineRepo, validationService);
     }
 
     @Bean
@@ -84,7 +92,8 @@ public class UseCaseConfig {
 
     @Bean
     public GetEventGraphUseCase getEventGraphUseCase(TimelineRepository timelineRepo,
-                                                     ConnectionRepository connectionRepo) {
-        return new GetEventGraphUseCase(timelineRepo, connectionRepo);
+                                                      ConnectionRepository connectionRepo,
+                                                      NarrativeValidationService validationService) {
+        return new GetEventGraphUseCase(timelineRepo, connectionRepo, validationService);
     }
 }

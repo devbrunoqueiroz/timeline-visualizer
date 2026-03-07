@@ -48,3 +48,4 @@ frontend/yarn-error.log
 *.bak
 
 claude.md
+.claude/

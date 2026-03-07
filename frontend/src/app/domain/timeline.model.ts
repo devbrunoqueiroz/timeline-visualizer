@@ -88,11 +88,22 @@ export interface GraphEdge {
   id: string;
   sourceEventId: string;
   targetEventId: string;
-  connectionType: ConnectionType;
-  description: string;
+  connectionType: ConnectionType | null;
+  description: string | null;
+  inferred: boolean;
+}
+
+export type ValidationSeverity = 'INFO' | 'WARNING';
+
+export interface NarrativeValidation {
+  connectionId: string;
+  severity: ValidationSeverity;
+  message: string;
+  suggestedFix: string | null;
 }
 
 export interface EventGraphResponse {
   nodes: GraphNode[];
   edges: GraphEdge[];
+  validations: NarrativeValidation[];
 }
