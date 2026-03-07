@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(java:*)",
+      "Bash(curl -s https://start.spring.io)",
+      "Bash(npx:*)",
+      "Bash(echo:*)",
+      "Bash(\"$MVN\" compile:*)",
+      "Bash(export:*)",
+      "Bash(MVN_BIN=\"/c/Users/bruno/.m2/wrapper/dists/apache-maven-3.9.12-bin/5nmfsn99br87k5d4ajlekdq10k/apache-maven-3.9.12/bin/mvn\")",
+      "Bash(PROJ_DIR=\"E:/Programacao/Projetos/claude-projects/timeline/backend\")",
+      "Read(//e/Programacao/Projetos/claude-projects/timeline/backend/**)",
+      "Bash(\"$MVN_BIN\" compile -q)",
+      "Bash(/c/Users/bruno/.m2/wrapper/dists/apache-maven-3.9.12-bin/5nmfsn99br87k5d4ajlekdq10k/apache-maven-3.9.12/bin/mvn test:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker compose:*)",
+      "Bash(curl:*)",
+      "Bash(npm install:*)",
+      "Bash(xargs grep:*)"
+    ]
+  }
+}
