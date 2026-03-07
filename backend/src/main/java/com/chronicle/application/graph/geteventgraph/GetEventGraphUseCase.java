@@ -49,7 +49,7 @@ public class GetEventGraphUseCase implements UseCase<GetEventGraphQuery, EventGr
         // Nodes
         List<GraphNodeView> nodes = timelines.stream()
                 .flatMap(t -> t.getEvents().stream()
-                        .map(e -> GraphNodeView.from(e, t.getId().value().toString())))
+                        .map(e -> GraphNodeView.from(e, t.getId().value().toString(), t.getName())))
                 .collect(Collectors.toList());
 
         Set<String> eventIds = nodes.stream().map(GraphNodeView::id).collect(Collectors.toSet());

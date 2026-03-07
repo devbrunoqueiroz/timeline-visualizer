@@ -421,8 +421,9 @@ export class GraphViewComponent implements OnInit, AfterViewInit, OnDestroy {
     cytoscape.use(cytoscapeDagre as any);
 
     const active = this.activeTypes();
-    const visibleEdges = this.graph.edges.filter(
-      e => e.inferred || (e.connectionType != null && active.has(e.connectionType))
+    // Explicit connections filtered by active types
+    const explicitEdges = this.graph.edges.filter(
+      e => !e.inferred && e.connectionType != null && active.has(e.connectionType)
     );
 
     const elements = [
@@ -435,21 +436,21 @@ export class GraphViewComponent implements OnInit, AfterViewInit, OnDestroy {
           color: this.timelineColorMap.get(n.timelineId) ?? '#6366f1'
         }
       })),
-      ...visibleEdges.map(e => {
-        const hasWarning = !e.inferred && this.validationMap.has(e.id);
-        const color = e.inferred
-          ? INFERRED_COLOR
-          : hasWarning
-            ? WARNING_COLOR
-            : (EDGE_COLORS[e.connectionType!] ?? '#94a3b8');
+      // Inferred temporal backbone — computed from nodes, always visible
+      ...this.buildInferredElements(),
+      ...explicitEdges.map(e => {
+        const hasWarning = this.validationMap.has(e.id);
+        const color = hasWarning
+          ? WARNING_COLOR
+          : (EDGE_COLORS[e.connectionType!] ?? '#94a3b8');
         return {
           data: {
             id: e.id,
             source: e.sourceEventId,
             target: e.targetEventId,
-            label: e.inferred ? '' : (EDGE_LABELS[e.connectionType!] ?? e.connectionType ?? ''),
+            label: EDGE_LABELS[e.connectionType!] ?? e.connectionType ?? '',
             color,
-            inferred: e.inferred,
+            inferred: false,
             hasWarning
           }
         };
@@ -543,6 +544,41 @@ export class GraphViewComponent implements OnInit, AfterViewInit, OnDestroy {
         this.selectedNode.set(null);
       }
     });
+  }
+
+  /**
+   * Computes inferred temporal edges from nodes — groups by timelineId,
+   * sorts by temporalPosition, and connects consecutive pairs.
+   * Runs entirely client-side so it works without a backend rebuild.
+   */
+  private buildInferredElements(): any[] {
+    const byTimeline = new Map<string, GraphNode[]>();
+    for (const node of this.graph.nodes) {
+      const list = byTimeline.get(node.timelineId) ?? [];
+      list.push(node);
+      byTimeline.set(node.timelineId, list);
+    }
+
+    const elements: any[] = [];
+    for (const [, nodes] of byTimeline) {
+      const sorted = [...nodes].sort((a, b) => a.temporalPosition - b.temporalPosition);
+      for (let i = 0; i < sorted.length - 1; i++) {
+        const src = sorted[i];
+        const tgt = sorted[i + 1];
+        elements.push({
+          data: {
+            id: `inferred:${src.id}:${tgt.id}`,
+            source: src.id,
+            target: tgt.id,
+            label: '',
+            color: INFERRED_COLOR,
+            inferred: true,
+            hasWarning: false
+          }
+        });
+      }
+    }
+    return elements;
   }
 
   toggleWarnings(): void {
