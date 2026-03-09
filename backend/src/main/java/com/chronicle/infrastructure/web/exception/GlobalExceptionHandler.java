@@ -1,8 +1,11 @@
 package com.chronicle.infrastructure.web.exception;
 
+import com.chronicle.application.shared.ApplicationException;
+import com.chronicle.domain.character.CharacterNotFoundException;
 import com.chronicle.domain.connection.ConnectionNotFoundException;
 import com.chronicle.domain.shared.DomainException;
 import com.chronicle.domain.timeline.TimelineNotFoundException;
+import com.chronicle.domain.user.UserAlreadyExistsException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -13,6 +16,24 @@ import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(UserAlreadyExistsException.class)
+    public ResponseEntity<ErrorResponse> handleUserAlreadyExists(UserAlreadyExistsException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of("USER_ALREADY_EXISTS", ex.getMessage()));
+    }
+
+    @ExceptionHandler(ApplicationException.class)
+    public ResponseEntity<ErrorResponse> handleApplication(ApplicationException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ErrorResponse.of("APPLICATION_ERROR", ex.getMessage()));
+    }
+
+    @ExceptionHandler(CharacterNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleCharacterNotFound(CharacterNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ErrorResponse.of("CHARACTER_NOT_FOUND", ex.getMessage()));
+    }
 
     @ExceptionHandler(TimelineNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleTimelineNotFound(TimelineNotFoundException ex) {

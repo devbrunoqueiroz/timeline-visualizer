@@ -4,6 +4,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { TimelineApiService } from '../../infrastructure/api/timeline-api.service';
+import { AuthService } from '../../infrastructure/auth/auth.service';
 import { TimelineSummary } from '../../domain/timeline.model';
 
 @Component({
@@ -15,7 +16,11 @@ import { TimelineSummary } from '../../domain/timeline.model';
     <div class="list-container">
       <div class="list-header">
         <h1>My Timelines</h1>
-        <button class="btn-primary" (click)="createNew()">+ New Timeline</button>
+        <div class="header-actions">
+          <span class="user-email">{{ auth.currentEmail() }}</span>
+          <button class="btn-primary" (click)="createNew()">+ New Timeline</button>
+          <button class="btn-logout" (click)="logout()">Sign out</button>
+        </div>
       </div>
 
       @if (loading()) {
@@ -61,6 +66,34 @@ import { TimelineSummary } from '../../domain/timeline.model';
       justify-content: space-between;
       align-items: center;
       margin-bottom: 32px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .user-email {
+      font-size: 13px;
+      color: #64748b;
+    }
+
+    .btn-logout {
+      padding: 8px 16px;
+      background: transparent;
+      color: #64748b;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .btn-logout:hover {
+      border-color: #94a3b8;
+      color: #374151;
     }
 
     h1 {
@@ -187,6 +220,7 @@ export class TimelineListComponent implements OnInit {
 
   private readonly api = inject(TimelineApiService);
   private readonly router = inject(Router);
+  readonly auth = inject(AuthService);
 
   readonly timelines = signal<TimelineSummary[]>([]);
   readonly loading = signal(true);
@@ -207,5 +241,10 @@ export class TimelineListComponent implements OnInit {
 
   createNew(): void {
     this.router.navigate(['/timelines', 'new']);
+  }
+
+  logout(): void {
+    this.auth.logout();
+    this.router.navigate(['/login']);
   }
 }

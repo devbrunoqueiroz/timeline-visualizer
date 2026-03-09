@@ -4,6 +4,7 @@ import com.chronicle.domain.shared.DomainException;
 import com.chronicle.domain.timeline.*;
 import com.chronicle.domain.timeline.events.EventAddedToTimeline;
 import com.chronicle.domain.timeline.events.TimelineCreated;
+import com.chronicle.domain.user.UserId;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -15,10 +16,15 @@ class TimelineTest {
 
     private static final TemporalPosition NOW = TemporalPosition.gregorian(Instant.now());
     private static final TemporalPosition CUSTOM_DATE = TemporalPosition.custom(1203L, "Era 2, Ano 1203");
+    private static final UserId OWNER = UserId.generate();
+
+    private static Timeline createTimeline(String name, String description) {
+        return Timeline.create(name, description, TimelineVisibility.PRIVATE, OWNER);
+    }
 
     @Test
     void shouldCreateTimelineWithValidName() {
-        var timeline = Timeline.create("Saga Matador de Drakars", "Sete livros");
+        var timeline = createTimeline("Saga Matador de Drakars", "Sete livros");
 
         assertThat(timeline.getName()).isEqualTo("Saga Matador de Drakars");
         assertThat(timeline.getDescription()).isEqualTo("Sete livros");
@@ -26,11 +32,12 @@ class TimelineTest {
         assertThat(timeline.getVisibility()).isEqualTo(TimelineVisibility.PRIVATE);
         assertThat(timeline.getId()).isNotNull();
         assertThat(timeline.getCreatedAt()).isNotNull();
+        assertThat(timeline.getOwnerId()).isEqualTo(OWNER);
     }
 
     @Test
     void shouldRegisterTimelineCreatedEvent() {
-        var timeline = Timeline.create("Test Timeline", "desc");
+        var timeline = createTimeline("Test Timeline", "desc");
 
         assertThat(timeline.getDomainEvents()).hasSize(1);
         assertThat(timeline.getDomainEvents().get(0)).isInstanceOf(TimelineCreated.class);
@@ -38,14 +45,14 @@ class TimelineTest {
 
     @Test
     void shouldRejectBlankName() {
-        assertThatThrownBy(() -> Timeline.create("", "desc"))
+        assertThatThrownBy(() -> Timeline.create("", "desc", TimelineVisibility.PRIVATE, OWNER))
                 .isInstanceOf(DomainException.class)
                 .hasMessage("Timeline name cannot be blank");
     }
 
     @Test
     void shouldRejectNullName() {
-        assertThatThrownBy(() -> Timeline.create(null, "desc"))
+        assertThatThrownBy(() -> Timeline.create(null, "desc", TimelineVisibility.PRIVATE, OWNER))
                 .isInstanceOf(DomainException.class)
                 .hasMessage("Timeline name cannot be blank");
     }
@@ -53,14 +60,14 @@ class TimelineTest {
     @Test
     void shouldRejectNameExceeding200Chars() {
         var longName = "x".repeat(201);
-        assertThatThrownBy(() -> Timeline.create(longName, "desc"))
+        assertThatThrownBy(() -> Timeline.create(longName, "desc", TimelineVisibility.PRIVATE, OWNER))
                 .isInstanceOf(DomainException.class)
                 .hasMessage("Timeline name cannot exceed 200 characters");
     }
 
     @Test
     void shouldAddEventWithGregorianDate() {
-        var timeline = Timeline.create("My Timeline", "desc");
+        var timeline = createTimeline("My Timeline", "desc");
         var content = EventContent.text("Something happened");
 
         var event = timeline.addEvent("First Event", content, NOW);
@@ -73,7 +80,7 @@ class TimelineTest {
 
     @Test
     void shouldAddEventWithCustomDate() {
-        var timeline = Timeline.create("Saga Fictícia", "desc");
+        var timeline = createTimeline("Saga Fictícia", "desc");
 
         var event = timeline.addEvent("Batalha de Aeros", EventContent.text("desc"), CUSTOM_DATE);
 
@@ -84,14 +91,13 @@ class TimelineTest {
 
     @Test
     void shouldOrderEventsByTemporalPosition() {
-        var timeline = Timeline.create("My Timeline", "desc");
+        var timeline = createTimeline("My Timeline", "desc");
         var later   = TemporalPosition.custom(200L, "Ano 200");
         var earlier = TemporalPosition.custom(100L, "Ano 100");
 
         timeline.addEvent("Later Event",   EventContent.text(""), later);
         timeline.addEvent("Earlier Event", EventContent.text(""), earlier);
 
-        // displayOrder segue ordem de inserção (ordenação visual é responsabilidade do frontend)
         assertThat(timeline.getEvents()).hasSize(2);
     }
 
@@ -118,7 +124,7 @@ class TimelineTest {
 
     @Test
     void shouldRegisterEventAddedDomainEvent() {
-        var timeline = Timeline.create("My Timeline", "desc");
+        var timeline = createTimeline("My Timeline", "desc");
         timeline.pullDomainEvents();
 
         timeline.addEvent("Event", EventContent.text("text"), NOW);
@@ -129,7 +135,7 @@ class TimelineTest {
 
     @Test
     void shouldRemoveEvent() {
-        var timeline = Timeline.create("My Timeline", "desc");
+        var timeline = createTimeline("My Timeline", "desc");
         var event = timeline.addEvent("Event 1", EventContent.text("text"), NOW);
         timeline.addEvent("Event 2", EventContent.text("text2"), NOW);
 
@@ -142,7 +148,7 @@ class TimelineTest {
 
     @Test
     void shouldUpdateTimeline() {
-        var timeline = Timeline.create("Old Name", "old desc");
+        var timeline = createTimeline("Old Name", "old desc");
 
         timeline.update("New Name", "new desc", TimelineVisibility.PUBLIC);
 
@@ -153,7 +159,7 @@ class TimelineTest {
 
     @Test
     void shouldPullAndClearDomainEvents() {
-        var timeline = Timeline.create("My Timeline", "desc");
+        var timeline = createTimeline("My Timeline", "desc");
 
         var events = timeline.pullDomainEvents();
 
@@ -163,7 +169,7 @@ class TimelineTest {
 
     @Test
     void shouldCreateTimelineWithPublicVisibility() {
-        var timeline = Timeline.create("Public Timeline", "desc", TimelineVisibility.PUBLIC);
+        var timeline = Timeline.create("Public Timeline", "desc", TimelineVisibility.PUBLIC, OWNER);
 
         assertThat(timeline.getVisibility()).isEqualTo(TimelineVisibility.PUBLIC);
     }

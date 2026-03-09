@@ -31,7 +31,8 @@ public class TimelineRepositoryAdapter implements TimelineRepository {
     @Override
     public List<Timeline> findAll(TimelineFilter filter) {
         var visibilityStr = filter.visibility() != null ? filter.visibility().name() : null;
-        return jpaRepository.findWithFilter(visibilityStr, filter.nameContains())
+        var ownerIdStr = filter.ownerId() != null ? filter.ownerId().toString() : null;
+        return jpaRepository.findWithFilter(visibilityStr, filter.nameContains(), ownerIdStr)
                 .stream()
                 .map(mapper::toDomain)
                 .toList();

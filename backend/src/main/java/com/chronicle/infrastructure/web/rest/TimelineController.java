@@ -19,10 +19,13 @@ import com.chronicle.application.timeline.updatetimeline.UpdateTimelineUseCase;
 import com.chronicle.domain.timeline.ContentType;
 import com.chronicle.domain.timeline.TemporalPosition;
 import com.chronicle.domain.timeline.TimelineId;
+import com.chronicle.domain.user.UserId;
+import com.chronicle.infrastructure.security.ChronicleUserDetails;
 import com.chronicle.infrastructure.web.rest.dto.*;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -59,16 +62,18 @@ public class TimelineController {
     }
 
     @GetMapping
-    public List<TimelineSummaryResponse> list() {
-        return listTimelines.execute(ListTimelinesQuery.all()).stream()
+    public List<TimelineSummaryResponse> list(@AuthenticationPrincipal ChronicleUserDetails user) {
+        return listTimelines.execute(ListTimelinesQuery.forOwner(UserId.of(user.getUserId()))).stream()
                 .map(TimelineSummaryResponse::from)
                 .toList();
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public TimelineResponse create(@RequestBody @Valid CreateTimelineRequest request) {
-        var command = new CreateTimelineCommand(request.name(), request.description(), request.visibility());
+    public TimelineResponse create(@RequestBody @Valid CreateTimelineRequest request,
+                                   @AuthenticationPrincipal ChronicleUserDetails user) {
+        var command = new CreateTimelineCommand(request.name(), request.description(), request.visibility(),
+                UserId.of(user.getUserId()));
         var result = createTimeline.execute(command);
         var view = getTimeline.execute(new GetTimelineQuery(TimelineId.of(result.id())));
         return TimelineResponse.from(view);

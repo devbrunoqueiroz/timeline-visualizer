@@ -19,7 +19,7 @@ public class CreateTimelineUseCase implements UseCase<CreateTimelineCommand, Cre
     @Override
     public CreateTimelineResult execute(CreateTimelineCommand command) {
         var visibility = command.visibility() != null ? command.visibility() : TimelineVisibility.PRIVATE;
-        var timeline = Timeline.create(command.name(), command.description(), visibility);
+        var timeline = Timeline.create(command.name(), command.description(), visibility, command.ownerId());
         timelineRepository.save(timeline);
         eventPublisher.publishAll(timeline.pullDomainEvents());
         return CreateTimelineResult.from(timeline);

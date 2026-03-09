@@ -4,6 +4,7 @@ import com.chronicle.domain.shared.AggregateRoot;
 import com.chronicle.domain.shared.DomainException;
 import com.chronicle.domain.timeline.events.EventAddedToTimeline;
 import com.chronicle.domain.timeline.events.TimelineCreated;
+import com.chronicle.domain.user.UserId;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -16,35 +17,33 @@ public class Timeline extends AggregateRoot<TimelineId> {
     private String name;
     private String description;
     private TimelineVisibility visibility;
+    private final UserId ownerId;
     private final List<TimelineEvent> events;
     private final Instant createdAt;
     private Instant updatedAt;
 
-    private Timeline(TimelineId id, String name, String description, TimelineVisibility visibility) {
+    private Timeline(TimelineId id, String name, String description, TimelineVisibility visibility, UserId ownerId) {
         this.id = id;
         this.name = name;
         this.description = description;
         this.visibility = visibility;
+        this.ownerId = ownerId;
         this.events = new ArrayList<>();
         this.createdAt = Instant.now();
         this.updatedAt = this.createdAt;
     }
 
-    public static Timeline create(String name, String description) {
-        return create(name, description, TimelineVisibility.PRIVATE);
-    }
-
-    public static Timeline create(String name, String description, TimelineVisibility visibility) {
+    public static Timeline create(String name, String description, TimelineVisibility visibility, UserId ownerId) {
         validateName(name);
-        var timeline = new Timeline(TimelineId.generate(), name, description, visibility);
+        var timeline = new Timeline(TimelineId.generate(), name, description, visibility, ownerId);
         timeline.registerEvent(new TimelineCreated(timeline.id, name));
         return timeline;
     }
 
     public static Timeline reconstitute(TimelineId id, String name, String description,
-                                        TimelineVisibility visibility, List<TimelineEvent> events,
-                                        Instant createdAt, Instant updatedAt) {
-        return new ReconstitutedBuilder(id, name, description, visibility, events, createdAt, updatedAt).build();
+                                        TimelineVisibility visibility, UserId ownerId,
+                                        List<TimelineEvent> events, Instant createdAt, Instant updatedAt) {
+        return new ReconstitutedBuilder(id, name, description, visibility, ownerId, events, createdAt, updatedAt).build();
     }
 
     private static class ReconstitutedBuilder {
@@ -52,23 +51,25 @@ public class Timeline extends AggregateRoot<TimelineId> {
         private final String name;
         private final String description;
         private final TimelineVisibility visibility;
+        private final UserId ownerId;
         private final List<TimelineEvent> events;
         private final Instant createdAt;
         private final Instant updatedAt;
 
         ReconstitutedBuilder(TimelineId id, String name, String description, TimelineVisibility visibility,
-                             List<TimelineEvent> events, Instant createdAt, Instant updatedAt) {
+                             UserId ownerId, List<TimelineEvent> events, Instant createdAt, Instant updatedAt) {
             this.id = id;
             this.name = name;
             this.description = description;
             this.visibility = visibility;
+            this.ownerId = ownerId;
             this.events = events;
             this.createdAt = createdAt;
             this.updatedAt = updatedAt;
         }
 
         Timeline build() {
-            var t = new Timeline(id, name, description, visibility);
+            var t = new Timeline(id, name, description, visibility, ownerId);
             t.events.addAll(events);
             t.updatedAt = updatedAt;
             return t;
@@ -129,11 +130,16 @@ public class Timeline extends AggregateRoot<TimelineId> {
         }
     }
 
+    public boolean isOwnedBy(UserId userId) {
+        return ownerId != null && ownerId.equals(userId);
+    }
+
     @Override
     public TimelineId getId() { return id; }
     public String getName() { return name; }
     public String getDescription() { return description; }
     public TimelineVisibility getVisibility() { return visibility; }
+    public UserId getOwnerId() { return ownerId; }
     public List<TimelineEvent> getEvents() { return Collections.unmodifiableList(events); }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }

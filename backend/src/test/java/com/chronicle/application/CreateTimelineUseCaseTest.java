@@ -6,6 +6,7 @@ import com.chronicle.application.timeline.createtimeline.CreateTimelineUseCase;
 import com.chronicle.domain.timeline.Timeline;
 import com.chronicle.domain.timeline.TimelineRepository;
 import com.chronicle.domain.timeline.TimelineVisibility;
+import com.chronicle.domain.user.UserId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,6 +19,8 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class CreateTimelineUseCaseTest {
+
+    private static final UserId OWNER = UserId.generate();
 
     @Mock
     private TimelineRepository timelineRepository;
@@ -34,7 +37,7 @@ class CreateTimelineUseCaseTest {
 
     @Test
     void shouldCreateAndSaveTimeline() {
-        var command = new CreateTimelineCommand("My Timeline", "A description", TimelineVisibility.PRIVATE);
+        var command = new CreateTimelineCommand("My Timeline", "A description", TimelineVisibility.PRIVATE, OWNER);
 
         var result = useCase.execute(command);
 
@@ -47,7 +50,7 @@ class CreateTimelineUseCaseTest {
 
     @Test
     void shouldPublishDomainEvents() {
-        var command = new CreateTimelineCommand("Timeline", "desc", TimelineVisibility.PUBLIC);
+        var command = new CreateTimelineCommand("Timeline", "desc", TimelineVisibility.PUBLIC, OWNER);
 
         useCase.execute(command);
 

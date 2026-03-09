@@ -8,6 +8,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { CanvasStateService, EventPosition } from '../../services/canvas-state.service';
 import { TimelineTrackComponent } from '../timeline-track/timeline-track.component';
+import { CharacterTrackComponent } from '../character-track/character-track.component';
 import { TimelineApiService } from '../../../../infrastructure/api/timeline-api.service';
 import { TimelineConnection, TimelineEvent } from '../../../../domain/timeline.model';
 
@@ -42,7 +43,7 @@ const CONNECTION_LABELS: Record<string, string> = {
 @Component({
   selector: 'app-canvas',
   standalone: true,
-  imports: [CommonModule, FormsModule, TimelineTrackComponent],
+  imports: [CommonModule, FormsModule, TimelineTrackComponent, CharacterTrackComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="canvas-wrapper">
@@ -166,6 +167,11 @@ const CONNECTION_LABELS: Record<string, string> = {
                     [pendingSourceId]="canvasState.pendingSource()?.id ?? null"
                     (eventSelected)="onEventSelected($event)"
                   />
+                </div>
+              }
+              @for (character of canvasState.characters(); track character.id) {
+                <div class="timeline-row">
+                  <app-character-track [character]="character" />
                 </div>
               }
             </div>

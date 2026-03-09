@@ -6,10 +6,12 @@ import { FormsModule } from '@angular/forms';
 import { RichTextEditorComponent } from '../../shared/components/rich-text-editor/rich-text-editor.component';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TimelineApiService } from '../../infrastructure/api/timeline-api.service';
+import { CharacterApiService } from '../../infrastructure/api/character-api.service';
 import { CanvasStateService } from '../timeline-canvas/services/canvas-state.service';
 import { CanvasComponent } from '../timeline-canvas/components/canvas/canvas.component';
 import {
   CUSTOM, GREGORIAN, temporalCustom, temporalFromDate,
+  Character, CharacterEvent, CharacterSummary,
   TemporalPosition, Timeline, TimelineEvent, TimelineSummary, TimelineVisibility
 } from '../../domain/timeline.model';
 
@@ -180,6 +182,123 @@ import {
                 }
               }
             </div>
+          </div>
+          <!-- Characters section -->
+          <div class="events-section">
+            <div class="section-header">
+              <h3>👤 Characters</h3>
+              <div style="display:flex;gap:6px;align-items:center">
+                <button class="btn-primary btn-sm" (click)="showAddCharacter.set(true)">+ Add</button>
+                <button class="btn-icon" (click)="showCharacters.set(!showCharacters())">
+                  {{ showCharacters() ? '▲' : '▼' }}
+                </button>
+              </div>
+            </div>
+
+            @if (showCharacters()) {
+              @if (showAddCharacter()) {
+                <div class="event-form">
+                  <label>Name</label>
+                  <input [(ngModel)]="charName" placeholder="Character name..." class="input" />
+                  <label>Description / Bio</label>
+                  <textarea [(ngModel)]="charDescription" placeholder="Optional..." class="input textarea"></textarea>
+                  <label>Temporal range (optional)</label>
+                  <div class="range-row">
+                    <input type="number" [(ngModel)]="charStartPos" placeholder="Start" class="input" />
+                    <span class="range-sep">→</span>
+                    <input type="number" [(ngModel)]="charEndPos" placeholder="End" class="input" />
+                  </div>
+                  <div class="form-actions">
+                    <button class="btn-primary btn-sm" (click)="addCharacter()">Create</button>
+                    <button class="btn-secondary btn-sm" (click)="showAddCharacter.set(false)">Cancel</button>
+                  </div>
+                </div>
+              }
+
+              <div class="events-list">
+                @for (char of characters(); track char.id) {
+                  @if (editingCharacter()?.id === char.id) {
+                    <div class="event-form">
+                      <label>Name</label>
+                      <input [(ngModel)]="charName" class="input" />
+                      <label>Description</label>
+                      <textarea [(ngModel)]="charDescription" class="input textarea"></textarea>
+                      <label>Range</label>
+                      <div class="range-row">
+                        <input type="number" [(ngModel)]="charStartPos" placeholder="Start" class="input" />
+                        <span class="range-sep">→</span>
+                        <input type="number" [(ngModel)]="charEndPos" placeholder="End" class="input" />
+                      </div>
+                      <div class="form-actions">
+                        <button class="btn-primary btn-sm" (click)="saveCharacter()">Save</button>
+                        <button class="btn-secondary btn-sm" (click)="editingCharacter.set(null)">Cancel</button>
+                      </div>
+
+                      <!-- Character events sub-section -->
+                      <div class="char-events-section">
+                        <div class="section-header" style="margin-bottom:8px">
+                          <span style="font-size:11px;font-weight:600;color:#7c3aed">Events</span>
+                          <button class="btn-primary btn-sm" style="font-size:10px;padding:3px 8px"
+                                  (click)="showAddCharEvent.set(!showAddCharEvent())">+</button>
+                        </div>
+
+                        @if (showAddCharEvent()) {
+                          <div class="event-form" style="background:#f5f3ff">
+                            <input [(ngModel)]="charEventTitle" placeholder="Event title..." class="input" />
+                            <label>Date type</label>
+                            <select [(ngModel)]="charEventDateType" class="input">
+                              <option value="GREGORIAN">Gregorian</option>
+                              <option value="CUSTOM">Custom</option>
+                            </select>
+                            @if (charEventDateType === 'GREGORIAN') {
+                              <input type="datetime-local" [(ngModel)]="charEventDate" class="input" />
+                            } @else {
+                              <input type="number" [(ngModel)]="charEventPosition" placeholder="Position" class="input" />
+                              <input [(ngModel)]="charEventLabel" placeholder="Label" class="input" />
+                            }
+                            <div class="form-actions">
+                              <button class="btn-primary btn-sm" (click)="addCharacterEvent()">Add</button>
+                              <button class="btn-secondary btn-sm" (click)="showAddCharEvent.set(false)">Cancel</button>
+                            </div>
+                          </div>
+                        }
+
+                        @for (ev of selectedCharacterFull()?.events ?? []; track ev.id) {
+                          <div class="event-item" style="background:#f5f3ff;border-color:#ddd6fe">
+                            <div class="event-item-header">
+                              <strong style="font-size:12px;color:#5b21b6">{{ ev.title }}</strong>
+                              <button class="delete-btn" (click)="removeCharacterEvent(ev)">×</button>
+                            </div>
+                            <span class="event-item-date">{{ ev.temporalLabel }}</span>
+                          </div>
+                        }
+                      </div>
+                    </div>
+                  } @else {
+                    <div class="event-item" style="border-color:#ddd6fe">
+                      <div class="event-item-header">
+                        <strong style="color:#6d28d9">{{ char.name }}</strong>
+                        <div class="event-item-actions">
+                          <button class="edit-btn" title="Edit character" (click)="openCharacter(char)">✎</button>
+                          <button class="delete-btn" (click)="deleteCharacter(char, $event)">×</button>
+                        </div>
+                      </div>
+                      @if (char.startPosition !== null || char.endPosition !== null) {
+                        <span class="event-item-date">
+                          {{ char.startPosition ?? '?' }} → {{ char.endPosition ?? '?' }}
+                        </span>
+                      }
+                      @if (char.linkedTimelineId) {
+                        <span class="event-item-date" style="color:#7c3aed;font-size:10px">✓ linked timeline</span>
+                      }
+                    </div>
+                  }
+                }
+                @if (characters().length === 0 && !showAddCharacter()) {
+                  <p class="no-other">No characters yet</p>
+                }
+              </div>
+            }
           </div>
         }
       </aside>
@@ -498,6 +617,24 @@ import {
       margin: 8px 0;
     }
 
+    .range-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .range-sep {
+      color: #94a3b8;
+      font-size: 12px;
+    }
+
+    .char-events-section {
+      margin-top: 12px;
+      border-top: 1px dashed #ddd6fe;
+      padding-top: 10px;
+    }
+
     .timeline-tabs-section {
       border-top: 1px solid #f1f5f9;
       padding: 8px 16px 0;
@@ -541,6 +678,7 @@ import {
 export class TimelineEditorComponent implements OnInit {
 
   private readonly api = inject(TimelineApiService);
+  private readonly characterApi = inject(CharacterApiService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   protected readonly canvasState = inject(CanvasStateService);
@@ -553,6 +691,23 @@ export class TimelineEditorComponent implements OnInit {
   readonly allTimelines = signal<TimelineSummary[]>([]);
   readonly showOtherTimelines = signal(false);
   readonly activeEditTimelineId = signal<string>('');
+
+  // Characters
+  readonly characters = signal<CharacterSummary[]>([]);
+  readonly showCharacters = signal(true);
+  readonly showAddCharacter = signal(false);
+  readonly editingCharacter = signal<CharacterSummary | null>(null);
+  readonly selectedCharacterFull = signal<Character | null>(null);
+  readonly showAddCharEvent = signal(false);
+  charName = '';
+  charDescription = '';
+  charStartPos: number | null = null;
+  charEndPos: number | null = null;
+  charEventTitle = '';
+  charEventDate = '';
+  charEventDateType: string = GREGORIAN;
+  charEventPosition: number = 0;
+  charEventLabel: string = '';
 
   readonly editingTimeline = computed(() =>
     this.canvasState.timelines().find(t => t.id === this.activeEditTimelineId()) ?? this.timeline()
@@ -599,6 +754,141 @@ export class TimelineEditorComponent implements OnInit {
         this.activeEditTimelineId.set(t.id);
       }
       this.loadConnections();
+      this.loadCharacters(id);
+    });
+  }
+
+  private loadCharacters(timelineId: string): void {
+    this.characterApi.listCharacters(timelineId).subscribe(chars => {
+      this.characters.set(chars);
+    });
+  }
+
+  private reloadCharactersInCanvas(): void {
+    const timelineId = this.timeline()?.id;
+    if (!timelineId) return;
+    this.characterApi.listCharacters(timelineId).subscribe(summaries => {
+      this.characters.set(summaries);
+      const editing = this.editingCharacter();
+      if (editing) {
+        this.characterApi.getCharacter(timelineId, editing.id).subscribe(full => {
+          this.selectedCharacterFull.set(full);
+          // Also reload the linked timeline in the canvas
+          if (full.linkedTimelineId) {
+            this.api.getTimeline(full.linkedTimelineId).subscribe(t => {
+              this.canvasState.updateTimeline(t);
+              this.loadConnections();
+            });
+          }
+        });
+      }
+    });
+  }
+
+  addCharacter(): void {
+    if (!this.charName) return;
+    const timelineId = this.timeline()!.id;
+    this.characterApi.createCharacter(timelineId, this.charName, this.charDescription,
+        this.charStartPos, this.charEndPos).subscribe(char => {
+      this.canvasState.addCharacter(char);
+      this.loadCharacters(timelineId);
+      this.charName = '';
+      this.charDescription = '';
+      this.charStartPos = null;
+      this.charEndPos = null;
+      this.showAddCharacter.set(false);
+    });
+  }
+
+  openCharacter(summary: CharacterSummary): void {
+    const timelineId = this.timeline()!.id;
+    // Close previous character's linked timeline
+    const prev = this.editingCharacter();
+    if (prev?.linkedTimelineId && prev.linkedTimelineId !== summary.linkedTimelineId) {
+      this.canvasState.removeTimeline(prev.linkedTimelineId);
+    }
+    this.editingCharacter.set(summary);
+    this.charName = summary.name;
+    this.charDescription = summary.description ?? '';
+    this.charStartPos = summary.startPosition;
+    this.charEndPos = summary.endPosition;
+    this.showAddCharEvent.set(false);
+    this.characterApi.getCharacter(timelineId, summary.id).subscribe(full => {
+      this.selectedCharacterFull.set(full);
+      // Load linked timeline into canvas so its events appear in graph and can be connected
+      if (full.linkedTimelineId) {
+        this.api.getTimeline(full.linkedTimelineId).subscribe(t => {
+          const exists = this.canvasState.timelines().some(ct => ct.id === t.id);
+          if (!exists) this.canvasState.addTimeline(t);
+          this.loadConnections();
+        });
+      }
+    });
+  }
+
+  saveCharacter(): void {
+    const char = this.editingCharacter();
+    if (!char || !this.charName) return;
+    const timelineId = this.timeline()!.id;
+    this.characterApi.updateCharacter(timelineId, char.id, this.charName, this.charDescription,
+        this.charStartPos, this.charEndPos).subscribe(updated => {
+      this.loadCharacters(timelineId);
+      // Reload linked timeline in canvas (name may have changed)
+      if (updated.linkedTimelineId) {
+        this.api.getTimeline(updated.linkedTimelineId).subscribe(t => {
+          this.canvasState.updateTimeline(t);
+        });
+      }
+      this.editingCharacter.set(null);
+      this.selectedCharacterFull.set(null);
+    });
+  }
+
+  deleteCharacter(summary: CharacterSummary, domEvent: MouseEvent): void {
+    domEvent.stopPropagation();
+    if (!confirm(`Delete character "${summary.name}"?`)) return;
+    const timelineId = this.timeline()!.id;
+    this.characterApi.deleteCharacter(timelineId, summary.id).subscribe(() => {
+      if (summary.linkedTimelineId) {
+        this.canvasState.removeTimeline(summary.linkedTimelineId);
+      }
+      this.canvasState.removeCharacter(summary.id);
+      if (this.editingCharacter()?.id === summary.id) {
+        this.editingCharacter.set(null);
+        this.selectedCharacterFull.set(null);
+      }
+      this.loadCharacters(timelineId);
+    });
+  }
+
+  addCharacterEvent(): void {
+    const char = this.editingCharacter();
+    if (!char || !this.charEventTitle) return;
+    const timelineId = this.timeline()!.id;
+    let temporal: TemporalPosition;
+    if (this.charEventDateType === GREGORIAN) {
+      if (!this.charEventDate) return;
+      temporal = temporalFromDate(new Date(this.charEventDate));
+    } else {
+      if (!this.charEventLabel) return;
+      temporal = temporalCustom(this.charEventPosition, this.charEventLabel);
+    }
+    this.characterApi.addEvent(timelineId, char.id, this.charEventTitle, '', temporal).subscribe(() => {
+      this.charEventTitle = '';
+      this.charEventDate = '';
+      this.charEventPosition = 0;
+      this.charEventLabel = '';
+      this.showAddCharEvent.set(false);
+      this.reloadCharactersInCanvas();
+    });
+  }
+
+  removeCharacterEvent(event: CharacterEvent): void {
+    const char = this.editingCharacter();
+    if (!char) return;
+    const timelineId = this.timeline()!.id;
+    this.characterApi.removeEvent(timelineId, char.id, event.id).subscribe(() => {
+      this.reloadCharactersInCanvas();
     });
   }
 

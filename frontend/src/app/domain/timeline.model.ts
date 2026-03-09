@@ -1,3 +1,35 @@
+export interface Character {
+  id: string;
+  timelineId: string;
+  linkedTimelineId: string | null;
+  name: string;
+  description: string;
+  startPosition: number | null;
+  endPosition: number | null;
+  events: CharacterEvent[];
+}
+
+export interface CharacterEvent {
+  id: string;
+  title: string;
+  contentText: string;
+  contentType: string;
+  temporalPosition: number;
+  temporalLabel: string;
+  calendarSystem: string;
+  displayOrder: number;
+}
+
+export interface CharacterSummary {
+  id: string;
+  timelineId: string;
+  linkedTimelineId: string | null;
+  name: string;
+  description: string;
+  startPosition: number | null;
+  endPosition: number | null;
+}
+
 export interface Timeline {
   id: string;
   name: string;

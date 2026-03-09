@@ -47,5 +47,4 @@ frontend/yarn-error.log
 *.orig
 *.bak
 
-claude.md
 .claude/

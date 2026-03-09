@@ -2,6 +2,18 @@
 
 A visual platform for creating and managing interactive timelines. Events are placed chronologically on parallel tracks, and can be connected across timelines using typed narrative relations.
 
+## Project Context
+
+This project was developed with the assistance of Claude (Anthropic) as part of a rapid prototyping and learning exercise.
+
+The goal of this repository is not to demonstrate hand-written production-grade software, but to explore:
+
+AWS deployment and infrastructure practices
+rapid development using AI-assisted workflows
+experimentation with low-code/AI-driven development
+Claude was used as a development assistant to accelerate scaffolding, code generation and refactoring.
+The project serves primarily as a practical sandbox for cloud deployment, DevOps workflows and early-stage product experimentation.
+
 ## Stack
 
 | Layer | Technology |

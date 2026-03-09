@@ -1,5 +1,5 @@
 import { Injectable, computed, signal } from '@angular/core';
-import { CanvasPosition, Timeline, TimelineConnection, TimelineEvent } from '../../../domain/timeline.model';
+import { CanvasPosition, Character, Timeline, TimelineConnection, TimelineEvent } from '../../../domain/timeline.model';
 
 export interface EventPosition {
   x: number;
@@ -17,6 +17,7 @@ export interface PendingConnection {
 export class CanvasStateService {
 
   private readonly _timelines = signal<Timeline[]>([]);
+  private readonly _characters = signal<Character[]>([]);
   private readonly _connections = signal<TimelineConnection[]>([]);
   private readonly _selectedEvent = signal<TimelineEvent | null>(null);
   private readonly _zoom = signal<number>(1);
@@ -28,6 +29,7 @@ export class CanvasStateService {
   private readonly _eventPositions = signal<Map<string, EventPosition>>(new Map());
 
   readonly timelines = this._timelines.asReadonly();
+  readonly characters = this._characters.asReadonly();
   readonly connections = this._connections.asReadonly();
   readonly selectedEvent = this._selectedEvent.asReadonly();
   readonly zoom = this._zoom.asReadonly();
@@ -50,6 +52,24 @@ export class CanvasStateService {
 
   setTimelines(timelines: Timeline[]): void {
     this._timelines.set(timelines);
+  }
+
+  setCharacters(characters: Character[]): void {
+    this._characters.set(characters);
+  }
+
+  addCharacter(character: Character): void {
+    this._characters.update(chars => [...chars, character]);
+  }
+
+  removeCharacter(characterId: string): void {
+    this._characters.update(chars => chars.filter(c => c.id !== characterId));
+  }
+
+  updateCharacter(character: Character): void {
+    this._characters.update(chars =>
+      chars.map(c => c.id === character.id ? character : c)
+    );
   }
 
   addTimeline(timeline: Timeline): void {

@@ -1,5 +1,17 @@
 package com.chronicle.infrastructure.config;
 
+import com.chronicle.application.auth.PasswordHasher;
+import com.chronicle.application.character.addevent.AddCharacterEventUseCase;
+import com.chronicle.application.character.create.CreateCharacterUseCase;
+import com.chronicle.application.character.delete.DeleteCharacterUseCase;
+import com.chronicle.application.character.get.GetCharacterUseCase;
+import com.chronicle.application.character.list.ListCharactersUseCase;
+import com.chronicle.application.character.removeevent.RemoveCharacterEventUseCase;
+import com.chronicle.application.character.update.UpdateCharacterUseCase;
+import com.chronicle.application.character.updateevent.UpdateCharacterEventUseCase;
+import com.chronicle.domain.character.CharacterRepository;
+import com.chronicle.application.auth.login.LoginUseCase;
+import com.chronicle.application.auth.register.RegisterUserUseCase;
 import com.chronicle.application.connection.createconnection.CreateConnectionUseCase;
 import com.chronicle.application.connection.deleteconnection.DeleteConnectionUseCase;
 import com.chronicle.application.connection.listconnections.ListConnectionsUseCase;
@@ -16,7 +28,9 @@ import com.chronicle.application.timeline.updateevent.UpdateEventUseCase;
 import com.chronicle.application.timeline.updatetimeline.UpdateTimelineUseCase;
 import com.chronicle.domain.connection.ConnectionRepository;
 import com.chronicle.domain.timeline.TimelineRepository;
+import com.chronicle.domain.user.UserRepository;
 import com.chronicle.infrastructure.persistence.jpa.TimelineMapper;
+import com.chronicle.infrastructure.security.BcryptPasswordHasher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -26,6 +40,21 @@ public class UseCaseConfig {
     @Bean
     public TimelineMapper timelineMapper() {
         return new TimelineMapper();
+    }
+
+    @Bean
+    public PasswordHasher passwordHasher() {
+        return new BcryptPasswordHasher();
+    }
+
+    @Bean
+    public RegisterUserUseCase registerUserUseCase(UserRepository userRepository, PasswordHasher passwordHasher) {
+        return new RegisterUserUseCase(userRepository, passwordHasher);
+    }
+
+    @Bean
+    public LoginUseCase loginUseCase(UserRepository userRepository, PasswordHasher passwordHasher) {
+        return new LoginUseCase(userRepository, passwordHasher);
     }
 
     @Bean
@@ -95,5 +124,46 @@ public class UseCaseConfig {
                                                       ConnectionRepository connectionRepo,
                                                       NarrativeValidationService validationService) {
         return new GetEventGraphUseCase(timelineRepo, connectionRepo, validationService);
+    }
+
+    @Bean
+    public CreateCharacterUseCase createCharacterUseCase(CharacterRepository characterRepo,
+                                                          TimelineRepository timelineRepo) {
+        return new CreateCharacterUseCase(characterRepo, timelineRepo);
+    }
+
+    @Bean
+    public GetCharacterUseCase getCharacterUseCase(CharacterRepository characterRepo, TimelineRepository timelineRepo) {
+        return new GetCharacterUseCase(characterRepo, timelineRepo);
+    }
+
+    @Bean
+    public ListCharactersUseCase listCharactersUseCase(CharacterRepository characterRepo) {
+        return new ListCharactersUseCase(characterRepo);
+    }
+
+    @Bean
+    public DeleteCharacterUseCase deleteCharacterUseCase(CharacterRepository characterRepo, TimelineRepository timelineRepo) {
+        return new DeleteCharacterUseCase(characterRepo, timelineRepo);
+    }
+
+    @Bean
+    public UpdateCharacterUseCase updateCharacterUseCase(CharacterRepository characterRepo, TimelineRepository timelineRepo) {
+        return new UpdateCharacterUseCase(characterRepo, timelineRepo);
+    }
+
+    @Bean
+    public AddCharacterEventUseCase addCharacterEventUseCase(CharacterRepository characterRepo, TimelineRepository timelineRepo) {
+        return new AddCharacterEventUseCase(characterRepo, timelineRepo);
+    }
+
+    @Bean
+    public UpdateCharacterEventUseCase updateCharacterEventUseCase(CharacterRepository characterRepo, TimelineRepository timelineRepo) {
+        return new UpdateCharacterEventUseCase(characterRepo, timelineRepo);
+    }
+
+    @Bean
+    public RemoveCharacterEventUseCase removeCharacterEventUseCase(CharacterRepository characterRepo, TimelineRepository timelineRepo) {
+        return new RemoveCharacterEventUseCase(characterRepo, timelineRepo);
     }
 }

@@ -1,6 +1,7 @@
 package com.chronicle.infrastructure.persistence.jpa;
 
 import com.chronicle.domain.timeline.*;
+import com.chronicle.domain.user.UserId;
 
 import java.time.Instant;
 import java.util.List;
@@ -13,6 +14,7 @@ public class TimelineMapper {
         entity.setName(timeline.getName());
         entity.setDescription(timeline.getDescription());
         entity.setVisibility(timeline.getVisibility().name());
+        entity.setOwnerId(timeline.getOwnerId() != null ? timeline.getOwnerId().value() : null);
         entity.setCreatedAt(timeline.getCreatedAt());
         entity.setUpdatedAt(timeline.getUpdatedAt());
 
@@ -28,11 +30,13 @@ public class TimelineMapper {
         List<TimelineEvent> events = entity.getEvents().stream()
                 .map(this::toEventDomain)
                 .toList();
+        var ownerId = entity.getOwnerId() != null ? new UserId(entity.getOwnerId()) : null;
         return Timeline.reconstitute(
                 new TimelineId(entity.getId()),
                 entity.getName(),
                 entity.getDescription(),
                 TimelineVisibility.valueOf(entity.getVisibility()),
+                ownerId,
                 events,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()

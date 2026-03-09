@@ -23,6 +23,9 @@ public class TimelineEntity {
     @Column(length = 20)
     private String visibility;
 
+    @Column
+    private UUID ownerId;
+
     @OneToMany(mappedBy = "timeline", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("displayOrder ASC")
     private List<TimelineEventEntity> events = new ArrayList<>();
@@ -41,6 +44,8 @@ public class TimelineEntity {
     public void setDescription(String description) { this.description = description; }
     public String getVisibility() { return visibility; }
     public void setVisibility(String visibility) { this.visibility = visibility; }
+    public UUID getOwnerId() { return ownerId; }
+    public void setOwnerId(UUID ownerId) { this.ownerId = ownerId; }
     public List<TimelineEventEntity> getEvents() { return events; }
     public void setEvents(List<TimelineEventEntity> events) { this.events = events; }
     public Instant getCreatedAt() { return createdAt; }
