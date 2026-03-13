@@ -4,6 +4,9 @@ import com.chronicle.application.shared.ApplicationException;
 import com.chronicle.domain.character.CharacterNotFoundException;
 import com.chronicle.domain.connection.ConnectionNotFoundException;
 import com.chronicle.domain.shared.DomainException;
+import com.chronicle.domain.story.SceneNotFoundException;
+import com.chronicle.domain.story.StoryNotFoundException;
+import com.chronicle.domain.story.StorySessionNotFoundException;
 import com.chronicle.domain.timeline.TimelineNotFoundException;
 import com.chronicle.domain.user.UserAlreadyExistsException;
 import org.springframework.http.HttpStatus;
@@ -45,6 +48,24 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleConnectionNotFound(ConnectionNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ErrorResponse.of("CONNECTION_NOT_FOUND", ex.getMessage()));
+    }
+
+    @ExceptionHandler(StoryNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleStoryNotFound(StoryNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ErrorResponse.of("STORY_NOT_FOUND", ex.getMessage()));
+    }
+
+    @ExceptionHandler(SceneNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleSceneNotFound(SceneNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ErrorResponse.of("SCENE_NOT_FOUND", ex.getMessage()));
+    }
+
+    @ExceptionHandler(StorySessionNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleStorySessionNotFound(StorySessionNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ErrorResponse.of("SESSION_NOT_FOUND", ex.getMessage()));
     }
 
     @ExceptionHandler(DomainException.class)

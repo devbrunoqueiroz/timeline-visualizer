@@ -8,7 +8,7 @@ import { FormsModule } from '@angular/forms';
 import { TimelineApiService } from '../../infrastructure/api/timeline-api.service';
 import {
   ConnectionType, EventGraphResponse, GraphEdge, GraphNode,
-  NarrativeValidation
+  NarrativeValidation, StoryPath, StoryPathNode
 } from '../../domain/timeline.model';
 
 const TIMELINE_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#84cc16'];
@@ -63,6 +63,11 @@ const WARNING_COLOR  = '#f59e0b';
             </label>
           }
           <button class="fit-btn" (click)="fitGraph()">Fit</button>
+          <button class="path-btn"
+                  [class.active]="pathMode()"
+                  (click)="togglePathMode()">
+            ⟶ Find Path
+          </button>
           <button class="warnings-btn"
                   [class.active]="showWarnings()"
                   (click)="toggleWarnings()">
@@ -145,6 +150,82 @@ const WARNING_COLOR  = '#f59e0b';
                   <div class="validation-fix">💡 {{ v.suggestedFix }}</div>
                 }
               </div>
+            }
+          </aside>
+        }
+
+        @if (pathMode()) {
+          <aside class="path-panel">
+            <div class="path-panel-header">
+              <span>⟶ Story Path Finder</span>
+              <button class="close-btn" (click)="togglePathMode()">✕</button>
+            </div>
+            <div class="path-instructions">
+              @if (!pathFrom()) {
+                <span class="path-hint">Click the <strong>start event</strong> on the graph</span>
+              } @else if (!pathTo()) {
+                <div class="path-step">
+                  <span class="path-step-label from-label">From:</span>
+                  <span class="path-step-title">{{ pathFrom()!.title }}</span>
+                </div>
+                <span class="path-hint">Now click the <strong>end event</strong></span>
+              } @else {
+                <div class="path-step">
+                  <span class="path-step-label from-label">From:</span>
+                  <span class="path-step-title">{{ pathFrom()!.title }}</span>
+                </div>
+                <div class="path-step">
+                  <span class="path-step-label to-label">To:</span>
+                  <span class="path-step-title">{{ pathTo()!.title }}</span>
+                </div>
+              }
+            </div>
+
+            <div class="path-options">
+              <label class="path-option-label">
+                <input type="checkbox"
+                       [checked]="pathExplicitOnly()"
+                       (change)="toggleExplicitOnly()">
+                Explicit connections only
+              </label>
+            </div>
+
+            @if (pathLoading()) {
+              <div class="path-loading">Searching…</div>
+            }
+            @if (pathError()) {
+              <div class="path-error">{{ pathError() }}</div>
+            }
+            @if (pathResult(); as result) {
+              @if (result.found) {
+                <div class="path-found">
+                  <div class="path-summary">
+                    Path found — <strong>{{ result.hopCount }}</strong> {{ result.hopCount === 1 ? 'hop' : 'hops' }}
+                  </div>
+                  <ol class="path-steps-list">
+                    @for (node of result.nodes; track node.id; let i = $index) {
+                      <li class="path-list-item" [class.first]="i === 0" [class.last]="i === result.nodes.length - 1">
+                        @if (node.temporalLabel) {
+                          <span class="path-item-date">{{ node.temporalLabel }}</span>
+                        }
+                        <span class="path-item-title">{{ node.title }}</span>
+                        @if (i < result.edges.length) {
+                          <span class="path-item-edge"
+                                [style.color]="edgeColor(result.edges[i].connectionType)">
+                            {{ result.edges[i].inferred ? '→ (temporal)' : ('→ ' + edgeLabel(result.edges[i].connectionType)) }}
+                          </span>
+                        }
+                      </li>
+                    }
+                  </ol>
+                </div>
+              } @else {
+                <div class="path-not-found">No path found between these events.</div>
+              }
+            }
+
+            @if (pathFrom()) {
+              <button class="reset-path-btn" (click)="resetPath()">Reset</button>
             }
           </aside>
         }
@@ -302,6 +383,59 @@ const WARNING_COLOR  = '#f59e0b';
     .loading-overlay { background: rgba(248,250,252,0.8); color: #6366f1; }
     .error-overlay { background: rgba(254,242,242,0.9); color: #ef4444; }
 
+    .path-btn {
+      padding: 6px 14px; background: #f0fdf4; color: #15803d;
+      border: 1.5px solid #86efac; border-radius: 6px; font-size: 12px;
+      font-weight: 600; cursor: pointer; transition: background 0.15s;
+    }
+    .path-btn:hover { background: #dcfce7; }
+    .path-btn.active { background: #dcfce7; border-color: #22c55e; color: #166534; }
+
+    .path-panel {
+      width: 280px; background: #f0fdf4; border-left: 1px solid #86efac;
+      padding: 0; overflow-y: auto; position: relative; flex-shrink: 0;
+      display: flex; flex-direction: column;
+    }
+    .path-panel-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 16px; background: #dcfce7; border-bottom: 1px solid #86efac;
+      font-size: 13px; font-weight: 700; color: #14532d; position: sticky; top: 0;
+    }
+    .path-instructions { padding: 12px 16px; border-bottom: 1px solid #bbf7d0; }
+    .path-hint { font-size: 12px; color: #166534; }
+    .path-step { display: flex; align-items: baseline; gap: 6px; margin-bottom: 6px; }
+    .path-step-label { font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 2px 6px; border-radius: 10px; }
+    .from-label { background: #c7d2fe; color: #3730a3; }
+    .to-label { background: #a7f3d0; color: #065f46; }
+    .path-step-title { font-size: 12px; font-weight: 600; color: #0f172a; }
+
+    .path-options { padding: 8px 16px; border-bottom: 1px solid #bbf7d0; }
+    .path-option-label { font-size: 12px; color: #166534; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+
+    .path-loading { padding: 12px 16px; font-size: 12px; color: #166534; font-style: italic; }
+    .path-error { padding: 12px 16px; font-size: 12px; color: #dc2626; background: #fee2e2; }
+    .path-not-found { padding: 12px 16px; font-size: 12px; color: #92400e; background: #fef3c7; }
+
+    .path-found { padding: 12px 16px; }
+    .path-summary { font-size: 12px; color: #166534; margin-bottom: 10px; }
+    .path-steps-list { list-style: none; padding: 0; margin: 0; }
+    .path-list-item {
+      position: relative; padding: 8px 10px; margin-bottom: 4px;
+      background: white; border-radius: 6px; border: 1px solid #bbf7d0;
+    }
+    .path-list-item.first { border-left: 3px solid #6366f1; }
+    .path-list-item.last { border-left: 3px solid #10b981; }
+    .path-item-date { display: block; font-size: 10px; color: #64748b; margin-bottom: 2px; }
+    .path-item-title { display: block; font-size: 12px; font-weight: 600; color: #0f172a; }
+    .path-item-edge { display: block; font-size: 10px; font-weight: 700; margin-top: 4px; }
+
+    .reset-path-btn {
+      margin: 12px 16px; padding: 6px 14px; background: white;
+      border: 1px solid #86efac; border-radius: 6px; font-size: 12px;
+      color: #166534; cursor: pointer; font-weight: 600;
+    }
+    .reset-path-btn:hover { background: #dcfce7; }
+
     .legend {
       display: flex; gap: 16px; flex-wrap: wrap; padding: 8px 20px;
       background: white; border-top: 1px solid #e2e8f0; flex-shrink: 0;
@@ -328,6 +462,15 @@ export class GraphViewComponent implements OnInit, AfterViewInit, OnDestroy {
     'CAUSAL', 'TEMPORAL', 'REFERENCE', 'CONTRAST',
     'PREREQUISITE', 'FORESHADOW', 'REVEAL', 'ESCALATION', 'RESOLUTION', 'PARALLEL'
   ] as ConnectionType[]));
+
+  // ── Story Path finding ────────────────────────────────────────────────────
+  readonly pathMode = signal(false);
+  readonly pathFrom = signal<GraphNode | null>(null);
+  readonly pathTo = signal<GraphNode | null>(null);
+  readonly pathResult = signal<StoryPath | null>(null);
+  readonly pathLoading = signal(false);
+  readonly pathError = signal<string | null>(null);
+  readonly pathExplicitOnly = signal(false);
 
   private graph: EventGraphResponse = { nodes: [], edges: [], validations: [] };
   private cy: any = null;
@@ -521,6 +664,41 @@ export class GraphViewComponent implements OnInit, AfterViewInit, OnDestroy {
             'width': 2.5,
             'line-style': 'solid' as any
           }
+        },
+        {
+          selector: 'node.path-from',
+          style: {
+            'border-width': 4,
+            'border-color': '#6366f1',
+            'border-style': 'solid' as any
+          }
+        },
+        {
+          selector: 'node.path-to',
+          style: {
+            'border-width': 4,
+            'border-color': '#10b981',
+            'border-style': 'solid' as any
+          }
+        },
+        {
+          selector: 'node.path-node',
+          style: {
+            'border-width': 3,
+            'border-color': '#f59e0b',
+            'border-style': 'solid' as any,
+            'opacity': 1
+          }
+        },
+        {
+          selector: 'edge.path-edge',
+          style: {
+            'width': 4,
+            'line-color': '#f59e0b',
+            'target-arrow-color': '#f59e0b',
+            'line-style': 'solid' as any,
+            'z-index': 10
+          }
         }
       ],
       layout: {
@@ -536,7 +714,11 @@ export class GraphViewComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cy.on('tap', 'node', (evt: any) => {
       const nodeId = evt.target.id();
       const node = this.graph.nodes.find(n => n.id === nodeId) ?? null;
-      this.selectedNode.set(node);
+      if (this.pathMode()) {
+        if (node) this.handlePathNodeClick(node);
+      } else {
+        this.selectedNode.set(node);
+      }
     });
 
     this.cy.on('tap', (evt: any) => {
@@ -579,6 +761,96 @@ export class GraphViewComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     }
     return elements;
+  }
+
+  // ── Story Path methods ────────────────────────────────────────────────────
+
+  togglePathMode(): void {
+    this.pathMode.update(v => {
+      if (v) {
+        // Exiting path mode — clear state
+        this.pathFrom.set(null);
+        this.pathTo.set(null);
+        this.pathResult.set(null);
+        this.pathError.set(null);
+        this.clearPathHighlight();
+      }
+      return !v;
+    });
+  }
+
+  /** Called when a node is tapped while in path-finding mode. */
+  private handlePathNodeClick(node: GraphNode): void {
+    if (!this.pathFrom()) {
+      this.pathFrom.set(node);
+      this.highlightNode(node.id, 'path-from');
+    } else if (!this.pathTo() && node.id !== this.pathFrom()!.id) {
+      this.pathTo.set(node);
+      this.highlightNode(node.id, 'path-to');
+      this.executeFindPath();
+    }
+  }
+
+  private executeFindPath(): void {
+    const from = this.pathFrom();
+    const to = this.pathTo();
+    if (!from || !to) return;
+
+    this.pathLoading.set(true);
+    this.pathResult.set(null);
+    this.pathError.set(null);
+
+    this.api.findStoryPath(from.id, to.id, this.pathExplicitOnly()).subscribe({
+      next: path => {
+        this.pathResult.set(path);
+        this.pathLoading.set(false);
+        if (path.found) {
+          this.highlightPath(path);
+        }
+      },
+      error: () => {
+        this.pathError.set('Failed to find path.');
+        this.pathLoading.set(false);
+      }
+    });
+  }
+
+  toggleExplicitOnly(): void {
+    this.pathExplicitOnly.update(v => !v);
+    if (this.pathFrom() && this.pathTo()) {
+      this.executeFindPath();
+    }
+  }
+
+  resetPath(): void {
+    this.pathFrom.set(null);
+    this.pathTo.set(null);
+    this.pathResult.set(null);
+    this.pathError.set(null);
+    this.clearPathHighlight();
+  }
+
+  pathNodeTitle(node: StoryPathNode): string {
+    return node.title;
+  }
+
+  private highlightNode(nodeId: string, cls: string): void {
+    if (!this.cy) return;
+    this.cy.$(`#${nodeId}`).addClass(cls);
+  }
+
+  private highlightPath(path: StoryPath): void {
+    if (!this.cy) return;
+    this.clearPathHighlight();
+    path.nodes.forEach(n => this.cy.$(`#${n.id}`).addClass('path-node'));
+    path.edges.forEach(e => {
+      if (!e.inferred) this.cy.$(`#${e.id}`).addClass('path-edge');
+    });
+  }
+
+  private clearPathHighlight(): void {
+    if (!this.cy) return;
+    this.cy.$('.path-from, .path-to, .path-node, .path-edge').removeClass('path-from path-to path-node path-edge');
   }
 
   toggleWarnings(): void {

@@ -1,0 +1,10 @@
+package com.chronicle.domain.story;
+
+public enum ConflictType {
+    DEAD_CHARACTER_IN_SCENE,
+    CHARACTER_IN_MULTIPLE_LOCATIONS,
+    CONTRADICTORY_FACTS,
+    IMPOSSIBLE_CAUSALITY,
+    UNIQUE_EVENT_REPEATED,
+    UNMET_REQUIREMENT
+}

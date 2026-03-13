@@ -31,6 +31,30 @@ const routes: Routes = [
     loadComponent: () =>
       import('./features/graph-view/graph-view.component').then(m => m.GraphViewComponent)
   },
+  {
+    path: 'stories',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/story-engine/story-list/story-list.component').then(m => m.StoryListComponent)
+  },
+  {
+    path: 'stories/:id/build',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/story-engine/story-builder/story-builder.component').then(m => m.StoryBuilderComponent)
+  },
+  {
+    path: 'stories/:id/play',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/story-engine/story-player/story-player.component').then(m => m.StoryPlayerComponent)
+  },
+  {
+    path: 'stories/:id/graph',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/story-engine/story-graph/story-graph.component').then(m => m.StoryGraphComponent)
+  },
   { path: '**', redirectTo: '' }
 ];
 

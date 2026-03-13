@@ -2,7 +2,7 @@ import {
   Component, OnInit, signal, inject, ChangeDetectionStrategy
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { TimelineApiService } from '../../infrastructure/api/timeline-api.service';
 import { AuthService } from '../../infrastructure/auth/auth.service';
 import { TimelineSummary } from '../../domain/timeline.model';
@@ -10,7 +10,7 @@ import { TimelineSummary } from '../../domain/timeline.model';
 @Component({
   selector: 'app-timeline-list',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="list-container">
@@ -18,6 +18,7 @@ import { TimelineSummary } from '../../domain/timeline.model';
         <h1>My Timelines</h1>
         <div class="header-actions">
           <span class="user-email">{{ auth.currentEmail() }}</span>
+          <a class="btn-story-engine" routerLink="/stories">Story Engine</a>
           <button class="btn-primary" (click)="createNew()">+ New Timeline</button>
           <button class="btn-logout" (click)="logout()">Sign out</button>
         </div>
@@ -78,6 +79,20 @@ import { TimelineSummary } from '../../domain/timeline.model';
       font-size: 13px;
       color: #64748b;
     }
+
+    .btn-story-engine {
+      padding: 8px 16px;
+      background: #1e1b4b;
+      color: #a5b4fc;
+      border: 1.5px solid #4f46e5;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.15s;
+    }
+    .btn-story-engine:hover { background: #312e81; }
 
     .btn-logout {
       padding: 8px 16px;

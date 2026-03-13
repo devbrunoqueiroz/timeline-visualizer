@@ -139,3 +139,29 @@ export interface EventGraphResponse {
   edges: GraphEdge[];
   validations: NarrativeValidation[];
 }
+
+// ── Story Path (graph traversal result) ──────────────────────────────────────
+
+export interface StoryPathNode {
+  id: string;
+  title: string;
+  temporalLabel: string | null;
+  temporalPosition: number | null;
+  calendarSystem: string | null;
+  timelineId: string | null;
+}
+
+export interface StoryPathEdge {
+  id: string;
+  sourceId: string;
+  targetId: string;
+  connectionType: ConnectionType | null;
+  inferred: boolean;
+}
+
+export interface StoryPath {
+  found: boolean;
+  hopCount: number;
+  nodes: StoryPathNode[];
+  edges: StoryPathEdge[];
+}

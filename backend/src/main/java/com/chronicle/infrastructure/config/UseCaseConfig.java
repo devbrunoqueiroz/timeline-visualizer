@@ -1,6 +1,25 @@
 package com.chronicle.infrastructure.config;
 
 import com.chronicle.application.auth.PasswordHasher;
+import com.chronicle.application.story.addscene.AddSceneUseCase;
+import com.chronicle.application.story.applyscene.ApplySceneUseCase;
+import com.chronicle.application.story.createstory.CreateStoryUseCase;
+import com.chronicle.application.story.createsession.CreateSessionUseCase;
+import com.chronicle.application.story.getavailablescenes.GetAvailableScenesUseCase;
+import com.chronicle.application.story.getstory.GetStoryUseCase;
+import com.chronicle.application.story.getstorygraph.GetStoryGraphUseCase;
+import com.chronicle.application.story.getsession.GetSessionUseCase;
+import com.chronicle.application.story.liststories.ListStoriesUseCase;
+import com.chronicle.application.story.updatescene.UpdateSceneUseCase;
+import com.chronicle.application.story.deletescene.DeleteSceneUseCase;
+import com.chronicle.application.story.advancestory.AdvanceStoryUseCase;
+import com.chronicle.application.story.getconflicts.GetConflictsUseCase;
+import com.chronicle.application.story.simulatefutures.SimulateFuturesUseCase;
+import com.chronicle.application.story.getnarrativetimeline.GetNarrativeTimelineUseCase;
+import com.chronicle.domain.story.StoryEngine;
+import com.chronicle.domain.story.StoryRepository;
+import com.chronicle.domain.story.StorySessionRepository;
+import com.chronicle.infrastructure.persistence.jpa.StoryMapper;
 import com.chronicle.application.character.addevent.AddCharacterEventUseCase;
 import com.chronicle.application.character.create.CreateCharacterUseCase;
 import com.chronicle.application.character.delete.DeleteCharacterUseCase;
@@ -15,8 +34,10 @@ import com.chronicle.application.auth.register.RegisterUserUseCase;
 import com.chronicle.application.connection.createconnection.CreateConnectionUseCase;
 import com.chronicle.application.connection.deleteconnection.DeleteConnectionUseCase;
 import com.chronicle.application.connection.listconnections.ListConnectionsUseCase;
+import com.chronicle.application.graph.findstorypath.FindStoryPathUseCase;
 import com.chronicle.application.graph.geteventgraph.GetEventGraphUseCase;
 import com.chronicle.application.narrative.NarrativeValidationService;
+import com.chronicle.domain.graph.GraphTraversalService;
 import com.chronicle.application.shared.DomainEventPublisher;
 import com.chronicle.application.timeline.addeventtotimeline.AddEventToTimelineUseCase;
 import com.chronicle.application.timeline.createtimeline.CreateTimelineUseCase;
@@ -127,6 +148,18 @@ public class UseCaseConfig {
     }
 
     @Bean
+    public GraphTraversalService graphTraversalService() {
+        return new GraphTraversalService();
+    }
+
+    @Bean
+    public FindStoryPathUseCase findStoryPathUseCase(TimelineRepository timelineRepo,
+                                                      ConnectionRepository connectionRepo,
+                                                      GraphTraversalService graphTraversalService) {
+        return new FindStoryPathUseCase(timelineRepo, connectionRepo, graphTraversalService);
+    }
+
+    @Bean
     public CreateCharacterUseCase createCharacterUseCase(CharacterRepository characterRepo,
                                                           TimelineRepository timelineRepo) {
         return new CreateCharacterUseCase(characterRepo, timelineRepo);
@@ -165,5 +198,100 @@ public class UseCaseConfig {
     @Bean
     public RemoveCharacterEventUseCase removeCharacterEventUseCase(CharacterRepository characterRepo, TimelineRepository timelineRepo) {
         return new RemoveCharacterEventUseCase(characterRepo, timelineRepo);
+    }
+
+    @Bean
+    public StoryMapper storyMapper() {
+        return new StoryMapper();
+    }
+
+    @Bean
+    public StoryEngine storyEngine() {
+        return new StoryEngine();
+    }
+
+    @Bean
+    public CreateStoryUseCase createStoryUseCase(StoryRepository storyRepository) {
+        return new CreateStoryUseCase(storyRepository);
+    }
+
+    @Bean
+    public AddSceneUseCase addSceneUseCase(StoryRepository storyRepository) {
+        return new AddSceneUseCase(storyRepository);
+    }
+
+    @Bean
+    public GetStoryUseCase getStoryUseCase(StoryRepository storyRepository) {
+        return new GetStoryUseCase(storyRepository);
+    }
+
+    @Bean
+    public ListStoriesUseCase listStoriesUseCase(StoryRepository storyRepository) {
+        return new ListStoriesUseCase(storyRepository);
+    }
+
+    @Bean
+    public CreateSessionUseCase createSessionUseCase(StoryRepository storyRepository,
+                                                      StorySessionRepository sessionRepository) {
+        return new CreateSessionUseCase(storyRepository, sessionRepository);
+    }
+
+    @Bean
+    public GetSessionUseCase getSessionUseCase(StorySessionRepository sessionRepository) {
+        return new GetSessionUseCase(sessionRepository);
+    }
+
+    @Bean
+    public GetAvailableScenesUseCase getAvailableScenesUseCase(StorySessionRepository sessionRepository,
+                                                                StoryRepository storyRepository,
+                                                                StoryEngine storyEngine) {
+        return new GetAvailableScenesUseCase(sessionRepository, storyRepository, storyEngine);
+    }
+
+    @Bean
+    public ApplySceneUseCase applySceneUseCase(StorySessionRepository sessionRepository,
+                                                StoryRepository storyRepository) {
+        return new ApplySceneUseCase(sessionRepository, storyRepository);
+    }
+
+    @Bean
+    public GetStoryGraphUseCase getStoryGraphUseCase(StoryRepository storyRepository) {
+        return new GetStoryGraphUseCase(storyRepository);
+    }
+
+    @Bean
+    public UpdateSceneUseCase updateSceneUseCase(StoryRepository storyRepository) {
+        return new UpdateSceneUseCase(storyRepository);
+    }
+
+    @Bean
+    public DeleteSceneUseCase deleteSceneUseCase(StoryRepository storyRepository) {
+        return new DeleteSceneUseCase(storyRepository);
+    }
+
+    @Bean
+    public AdvanceStoryUseCase advanceStoryUseCase(StorySessionRepository sessionRepository,
+                                                    StoryRepository storyRepository,
+                                                    StoryEngine storyEngine) {
+        return new AdvanceStoryUseCase(sessionRepository, storyRepository, storyEngine);
+    }
+
+    @Bean
+    public GetConflictsUseCase getConflictsUseCase(StorySessionRepository sessionRepository,
+                                                    StoryRepository storyRepository) {
+        return new GetConflictsUseCase(sessionRepository, storyRepository);
+    }
+
+    @Bean
+    public SimulateFuturesUseCase simulateFuturesUseCase(StorySessionRepository sessionRepository,
+                                                          StoryRepository storyRepository,
+                                                          StoryEngine storyEngine) {
+        return new SimulateFuturesUseCase(sessionRepository, storyRepository, storyEngine);
+    }
+
+    @Bean
+    public GetNarrativeTimelineUseCase getNarrativeTimelineUseCase(StorySessionRepository sessionRepository,
+                                                                    StoryRepository storyRepository) {
+        return new GetNarrativeTimelineUseCase(sessionRepository, storyRepository);
     }
 }

@@ -15,6 +15,7 @@ import {
   ContentType,
   EventContent,
   EventGraphResponse,
+  StoryPath,
   TemporalPosition,
   Timeline,
   TimelineConnection,
@@ -110,5 +111,19 @@ export class TimelineApiService {
     return this.http.get<EventGraphDto>(this.graphUrl, { params }).pipe(
       map(dto => TimelineMapper.toGraphDomain(dto))
     );
+  }
+
+  /**
+   * Finds the shortest story path between two events in the narrative graph.
+   * @param fromEventId source event UUID
+   * @param toEventId   target event UUID
+   * @param explicitOnly if true, only traverse user-defined connections
+   */
+  findStoryPath(fromEventId: string, toEventId: string, explicitOnly = false): Observable<StoryPath> {
+    let params = new HttpParams()
+      .set('from', fromEventId)
+      .set('to', toEventId)
+      .set('explicitOnly', String(explicitOnly));
+    return this.http.get<StoryPath>(`${this.graphUrl}/path`, { params });
   }
 }

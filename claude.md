@@ -8,6 +8,7 @@
 - Desenhar múltiplas timelines em paralelo (ex: linha do tempo de personagens, de eras, de eventos)
 - Conectar eventos entre timelines diferentes
 - Navegar visualmente por períodos de tempo
+- Executar e simular narrativas interativas através da **Story Engine**
 
 **Stack:** Spring Boot 3.x (backend) + Angular 18+ (frontend)
 
@@ -69,6 +70,53 @@ domain/
 │   ├── TimelineConnection.java # Agregado — conexão entre eventos de timelines diferentes
 │   ├── ConnectionRepository.java
 │   └── ...
+├── story/                      # Story Engine — núcleo narrativo
+│   ├── world/
+│   │   ├── WorldModel.java         # Agregado raiz do mundo narrativo
+│   │   ├── WorldModelId.java
+│   │   ├── WorldState.java         # Estado atual do mundo (versionável)
+│   │   ├── WorldStateVersion.java  # Value Object de versão
+│   │   └── WorldModelRepository.java
+│   ├── entity/
+│   │   ├── StoryEntity.java        # Entidade narrativa base (Character, Location, etc.)
+│   │   ├── StoryEntityId.java
+│   │   ├── EntityProperty.java     # Value Object — propriedade mutável/imutável
+│   │   ├── EntityRelation.java     # Value Object — relação entre entidades
+│   │   └── EntityType.java         # Enum: CHARACTER, LOCATION, FACTION, ARTIFACT, ...
+│   ├── fact/
+│   │   ├── NarrativeFact.java      # Fato narrativo verificável
+│   │   ├── FactId.java
+│   │   ├── FactPredicate.java      # Value Object — sujeito, predicado, objeto
+│   │   └── FactRepository.java
+│   ├── scene/
+│   │   ├── Scene.java              # Agregado — cena narrativa
+│   │   ├── SceneId.java
+│   │   ├── SceneRequirement.java   # Condição de ativação da cena
+│   │   ├── SceneEffect.java        # Efeito produzido pela cena no mundo
+│   │   ├── NarrativePriority.java  # Value Object de prioridade
+│   │   └── SceneRepository.java
+│   ├── timeline/
+│   │   ├── NarrativeTimeline.java  # Linha do tempo narrativa (ordem e dependências)
+│   │   ├── NarrativeEvent.java     # Evento registrado na timeline narrativa
+│   │   └── NarrativeTimelineRepository.java
+│   ├── character/
+│   │   ├── CharacterModel.java     # Modelo rico de personagem
+│   │   ├── CharacterGoal.java      # Value Object — objetivo
+│   │   ├── CharacterBelief.java    # Value Object — crença
+│   │   ├── CharacterEmotion.java   # Value Object — emoção atual
+│   │   └── SocialRelation.java     # Value Object — relação social
+│   ├── rule/
+│   │   ├── NarrativeRule.java      # Regra narrativa (interface)
+│   │   ├── UniqueEventRule.java    # Evento único não pode repetir
+│   │   ├── AlivePresenceRule.java  # Morto não aparece em cena
+│   │   └── CausalityRule.java      # Causalidade deve ser respeitada
+│   ├── conflict/
+│   │   ├── NarrativeConflict.java  # Conflito ou contradição detectada
+│   │   └── ConflictType.java       # Enum: DEAD_CHARACTER_IN_SCENE, DUPLICATE_FACT, etc.
+│   └── engine/
+│       ├── StoryEngine.java        # Serviço de domínio principal da engine
+│       ├── SceneSelector.java      # Lógica de escolha narrativa
+│       └── NarrativeValidator.java # Valida requisitos e consistência antes de executar
 └── shared/
     ├── DomainEvent.java        # Interface base para eventos de domínio
     └── AggregateRoot.java      # Classe base para agregados
@@ -206,6 +254,35 @@ application/
 │   │   └── TimelineView.java            # DTO de leitura (pode ser diferente do domínio)
 │   └── DeleteTimeline/
 │       └── ...
+├── story/                               # Story Engine — casos de uso
+│   ├── AdvanceStory/
+│   │   ├── AdvanceStoryUseCase.java
+│   │   ├── AdvanceStoryCommand.java
+│   │   └── AdvanceStoryResult.java
+│   ├── GetAvailableScenes/
+│   │   ├── GetAvailableScenesUseCase.java
+│   │   ├── GetAvailableScenesQuery.java
+│   │   └── AvailableScenesView.java
+│   ├── ApplyEvent/
+│   │   ├── ApplyEventUseCase.java
+│   │   ├── ApplyEventCommand.java
+│   │   └── ApplyEventResult.java
+│   ├── QueryWorldState/
+│   │   ├── QueryWorldStateUseCase.java
+│   │   ├── WorldStateQuery.java
+│   │   └── WorldStateView.java
+│   ├── GetCharacterState/
+│   │   ├── GetCharacterStateUseCase.java
+│   │   ├── GetCharacterStateQuery.java
+│   │   └── CharacterStateView.java
+│   ├── SeedNarrative/
+│   │   ├── SeedNarrativeUseCase.java   # Inicializa história com estado e personagens iniciais
+│   │   ├── SeedNarrativeCommand.java
+│   │   └── SeedNarrativeResult.java
+│   └── SimulateFutures/
+│       ├── SimulateFuturesUseCase.java  # Simula múltiplos cenários possíveis
+│       ├── SimulateFuturesQuery.java
+│       └── SimulationView.java
 └── shared/
     ├── UseCase.java                      # Interface genérica
     └── ApplicationException.java
@@ -444,10 +521,662 @@ resources/
     ├── V1__create_timelines.sql
     ├── V2__create_timeline_events.sql
     ├── V3__create_timeline_connections.sql
-    └── V4__add_indexes.sql
+    ├── V4__add_indexes.sql
+    ├── V5__create_world_models.sql
+    ├── V6__create_story_entities.sql
+    ├── V7__create_narrative_facts.sql
+    ├── V8__create_scenes.sql
+    └── V9__create_narrative_timeline.sql
 ```
 
 Sempre use Flyway. Nunca use `spring.jpa.hibernate.ddl-auto=create` em produção.
+
+---
+
+## Story Engine
+
+A **Story Engine** é o subsistema narrativo do Chronicle. Ela gerencia o estado de um mundo narrativo, executa cenas, aplica efeitos, detecta contradições e simula futuros possíveis. É completamente separada do motor de timelines visuais — ambos coexistem no mesmo projeto mas com domínios distintos.
+
+### Princípio de Separação
+
+```
+Story Engine
+├── Motor Narrativo   → lógica, regras, simulação          (domínio/story/engine)
+└── Conteúdo Narrativo → cenas, personagens, fatos iniciais  (seeds / content files)
+```
+
+O motor nunca conhece o conteúdo específico de uma história. O conteúdo é injetado via seeds e repositórios.
+
+---
+
+### 1. Modelo de Mundo (World Model)
+
+Representa estruturalmente o mundo de uma história. Cada entidade possui ID único, propriedades mutáveis, propriedades imutáveis e relações com outras entidades.
+
+```java
+public class WorldModel extends AggregateRoot<WorldModelId> {
+
+    private WorldModelId id;
+    private String name;
+    private WorldState currentState;
+    private List<StoryEntity> entities;
+
+    public StoryEntity addEntity(String name, EntityType type,
+                                  Map<String, Object> mutableProps,
+                                  Map<String, Object> immutableProps) {
+        var entity = StoryEntity.create(name, type, mutableProps, immutableProps);
+        this.entities.add(entity);
+        registerEvent(new EntityAddedToWorld(this.id, entity.getId()));
+        return entity;
+    }
+
+    public void addRelation(StoryEntityId from, StoryEntityId to, String relationType) {
+        var fromEntity = findEntityById(from);
+        fromEntity.addRelation(EntityRelation.of(to, relationType));
+    }
+}
+
+// Tipos de entidade suportados
+public enum EntityType {
+    CHARACTER, LOCATION, FACTION, ARTIFACT, EVENT_HISTORICAL, GLOBAL_CONDITION
+}
+
+// Propriedade de entidade — mutável ou imutável
+public record EntityProperty(String key, Object value, boolean immutable) {
+    public EntityProperty withValue(Object newValue) {
+        if (immutable) throw new DomainException("Cannot mutate immutable property: " + key);
+        return new EntityProperty(key, newValue, false);
+    }
+}
+```
+
+---
+
+### 2. Estado do Mundo (World State)
+
+Snapshot versionável do mundo narrativo em um dado momento.
+
+```java
+public class WorldState {
+
+    private WorldStateVersion version;
+    private Map<StoryEntityId, EntitySnapshot> entitySnapshots;
+    private List<NarrativeFact> activeFacts;
+    private List<NarrativeEvent> executedEvents;
+    private Map<String, Object> globalConditions; // guerra, paz, destruição, etc.
+
+    public WorldState advance(List<SceneEffect> effects) {
+        // Cria nova versão do estado aplicando os efeitos
+        var builder = WorldStateBuilder.from(this).nextVersion();
+        effects.forEach(effect -> effect.applyTo(builder));
+        return builder.build();
+    }
+
+    public WorldState rollbackTo(WorldStateVersion version) {
+        // Retrocede para uma versão anterior
+    }
+}
+
+public record WorldStateVersion(int major, int minor) implements Comparable<WorldStateVersion> {
+    public WorldStateVersion next() {
+        return new WorldStateVersion(major, minor + 1);
+    }
+}
+```
+
+---
+
+### 3. Sistema de Fatos (Facts)
+
+Fatos narrativos verificáveis com sujeito, predicado, objeto opcional e validade temporal.
+
+```java
+public class NarrativeFact {
+
+    private FactId id;
+    private FactPredicate predicate;
+    private Instant validFrom;
+    private Instant validUntil;     // null = válido indefinidamente
+    private boolean contradicted;
+
+    public boolean isActiveAt(Instant moment) {
+        return !contradicted
+            && !moment.isBefore(validFrom)
+            && (validUntil == null || moment.isBefore(validUntil));
+    }
+
+    public void contradict() {
+        this.contradicted = true;
+        registerEvent(new FactContradicted(this.id));
+    }
+}
+
+public record FactPredicate(
+    StoryEntityId subject,
+    String predicate,          // "IS_ALIVE", "TRUSTS", "POSSESSES", "IS_DESTROYED"
+    StoryEntityId object       // opcional — null para predicados unários
+) {}
+
+// Exemplos de fatos:
+// FactPredicate(kingId, "IS_ALIVE", null)
+// FactPredicate(characterId, "TRUSTS", otherId)
+// FactPredicate(characterId, "POSSESSES", artifactId)
+// FactPredicate(cityId, "IS_DESTROYED", null)
+```
+
+---
+
+### 4. Sistema de Requisitos (Requirements)
+
+Condições que devem ser satisfeitas para uma cena ser ativável.
+
+```java
+public interface SceneRequirement {
+    boolean isSatisfiedBy(WorldState state);
+    String describe();
+}
+
+// Implementações concretas
+public record CharacterAliveRequirement(StoryEntityId characterId) implements SceneRequirement {
+    public boolean isSatisfiedBy(WorldState state) {
+        return state.hasFact(characterId, "IS_ALIVE");
+    }
+}
+
+public record CharacterInLocationRequirement(StoryEntityId characterId,
+                                              StoryEntityId locationId) implements SceneRequirement {
+    public boolean isSatisfiedBy(WorldState state) {
+        return state.hasFact(characterId, "IS_AT", locationId);
+    }
+}
+
+public record FactExistsRequirement(FactPredicate predicate) implements SceneRequirement {
+    public boolean isSatisfiedBy(WorldState state) {
+        return state.hasFact(predicate);
+    }
+}
+
+public record PriorEventExecutedRequirement(SceneId sceneId) implements SceneRequirement {
+    public boolean isSatisfiedBy(WorldState state) {
+        return state.hasExecuted(sceneId);
+    }
+}
+```
+
+---
+
+### 5. Sistema de Efeitos (Effects)
+
+Efeitos que uma cena produz no estado do mundo ao ser executada.
+
+```java
+public interface SceneEffect {
+    void applyTo(WorldStateBuilder stateBuilder);
+    String describe();
+}
+
+// Implementações concretas
+public record KillCharacterEffect(StoryEntityId characterId) implements SceneEffect {
+    public void applyTo(WorldStateBuilder builder) {
+        builder.removeFact(characterId, "IS_ALIVE");
+        builder.addFact(characterId, "IS_DEAD");
+    }
+}
+
+public record MoveCharacterEffect(StoryEntityId characterId,
+                                   StoryEntityId targetLocationId) implements SceneEffect {
+    public void applyTo(WorldStateBuilder builder) {
+        builder.removeFactsWithSubjectAndPredicate(characterId, "IS_AT");
+        builder.addFact(characterId, "IS_AT", targetLocationId);
+    }
+}
+
+public record ChangeAllegianceEffect(StoryEntityId characterId,
+                                      StoryEntityId newFactionId) implements SceneEffect {
+    public void applyTo(WorldStateBuilder builder) {
+        builder.removeFactsWithSubjectAndPredicate(characterId, "BELONGS_TO");
+        builder.addFact(characterId, "BELONGS_TO", newFactionId);
+    }
+}
+
+public record CreateFactEffect(FactPredicate predicate) implements SceneEffect {
+    public void applyTo(WorldStateBuilder builder) {
+        builder.addFact(predicate);
+    }
+}
+
+public record RemoveFactEffect(FactPredicate predicate) implements SceneEffect {
+    public void applyTo(WorldStateBuilder builder) {
+        builder.removeFact(predicate);
+    }
+}
+```
+
+---
+
+### 6. Sistema de Cenas (Scenes)
+
+Uma cena é a unidade executável da narrativa.
+
+```java
+public class Scene extends AggregateRoot<SceneId> {
+
+    private SceneId id;
+    private String narrativeDescription;
+    private List<StoryEntityId> involvedCharacters;
+    private List<SceneRequirement> requirements;
+    private List<SceneEffect> effects;
+    private NarrativePriority priority;
+    private List<String> thematicTags;
+    private boolean unique;           // cena única não pode repetir
+
+    public boolean canExecuteIn(WorldState state) {
+        return requirements.stream().allMatch(req -> req.isSatisfiedBy(state));
+    }
+
+    public WorldState execute(WorldState currentState) {
+        return currentState.advance(effects);
+    }
+}
+
+public record NarrativePriority(int value) implements Comparable<NarrativePriority> {
+    public static NarrativePriority of(int value) {
+        if (value < 0 || value > 100) throw new DomainException("Priority must be 0-100");
+        return new NarrativePriority(value);
+    }
+}
+```
+
+---
+
+### 7. Sistema de Linha Temporal Narrativa (Narrative Timeline)
+
+Registra a ordem dos eventos, dependências e histórico do mundo.
+
+```java
+public class NarrativeTimeline extends AggregateRoot<NarrativeTimelineId> {
+
+    private List<NarrativeEvent> events;
+    private List<WorldState> stateHistory; // um estado por evento
+
+    public void record(Scene executedScene, WorldState resultingState) {
+        var event = NarrativeEvent.of(executedScene.getId(), Instant.now(), resultingState.getVersion());
+        this.events.add(event);
+        this.stateHistory.add(resultingState);
+        registerEvent(new NarrativeEventRecorded(event));
+    }
+
+    public WorldState getStateAt(WorldStateVersion version) {
+        return stateHistory.stream()
+            .filter(s -> s.getVersion().equals(version))
+            .findFirst()
+            .orElseThrow(() -> new DomainException("State version not found: " + version));
+    }
+
+    public List<NarrativeEvent> getEventsDependingOn(SceneId sceneId) {
+        return events.stream()
+            .filter(e -> e.dependsOn(sceneId))
+            .toList();
+    }
+}
+```
+
+---
+
+### 8. Sistema de Conflitos e Contradições
+
+Detecta incoerências antes de executar cenas.
+
+```java
+public class NarrativeConflict {
+
+    private ConflictType type;
+    private String description;
+    private List<StoryEntityId> involvedEntities;
+    private SceneId conflictingScene;
+
+    public static NarrativeConflict deadCharacterInScene(StoryEntityId characterId, SceneId sceneId) {
+        return new NarrativeConflict(
+            ConflictType.DEAD_CHARACTER_IN_SCENE,
+            "Character " + characterId + " is dead but appears in scene " + sceneId,
+            List.of(characterId),
+            sceneId
+        );
+    }
+}
+
+public enum ConflictType {
+    DEAD_CHARACTER_IN_SCENE,
+    CHARACTER_IN_MULTIPLE_LOCATIONS,
+    CONTRADICTORY_FACTS,
+    IMPOSSIBLE_CAUSALITY,
+    UNIQUE_EVENT_REPEATED
+}
+```
+
+---
+
+### 9. Sistema de Regras Narrativas
+
+Regras que evitam incoerências. São avaliadas pelo `NarrativeValidator` antes de qualquer execução.
+
+```java
+public interface NarrativeRule {
+    List<NarrativeConflict> validate(Scene scene, WorldState state);
+    String describe();
+}
+
+// Regra: personagem não pode estar em dois lugares ao mesmo tempo
+public class SingleLocationRule implements NarrativeRule {
+    public List<NarrativeConflict> validate(Scene scene, WorldState state) {
+        return scene.getInvolvedCharacters().stream()
+            .filter(c -> state.countLocationsOf(c) > 1)
+            .map(c -> NarrativeConflict.characterInMultipleLocations(c, scene.getId()))
+            .toList();
+    }
+}
+
+// Regra: morto não fala / aparece
+public class AlivePresenceRule implements NarrativeRule {
+    public List<NarrativeConflict> validate(Scene scene, WorldState state) {
+        return scene.getInvolvedCharacters().stream()
+            .filter(c -> state.hasFact(c, "IS_DEAD"))
+            .map(c -> NarrativeConflict.deadCharacterInScene(c, scene.getId()))
+            .toList();
+    }
+}
+
+// Regra: evento único não repete
+public class UniqueEventRule implements NarrativeRule {
+    public List<NarrativeConflict> validate(Scene scene, WorldState state) {
+        if (scene.isUnique() && state.hasExecuted(scene.getId())) {
+            return List.of(NarrativeConflict.uniqueEventRepeated(scene.getId()));
+        }
+        return List.of();
+    }
+}
+```
+
+---
+
+### 10. Sistema de Escolha Narrativa (Scene Selector)
+
+Decide qual cena executar quando múltiplas são possíveis.
+
+```java
+@DomainService
+public class SceneSelector {
+
+    public Optional<Scene> select(List<Scene> availableScenes, WorldState state, SelectionStrategy strategy) {
+        var candidates = availableScenes.stream()
+            .filter(s -> s.canExecuteIn(state))
+            .toList();
+
+        return switch (strategy) {
+            case HIGHEST_PRIORITY -> candidates.stream()
+                .max(Comparator.comparing(Scene::getPriority));
+            case DRAMATIC_TENSION -> selectByDramaticTension(candidates, state);
+            case WEIGHTED_RANDOM   -> selectWeightedRandom(candidates);
+            case CHARACTER_GOAL    -> selectByCharacterGoals(candidates, state);
+        };
+    }
+}
+
+public enum SelectionStrategy {
+    HIGHEST_PRIORITY,
+    DRAMATIC_TENSION,
+    WEIGHTED_RANDOM,
+    CHARACTER_GOAL
+}
+```
+
+---
+
+### 11. Modelo de Personagem (Character Model)
+
+Personagens possuem objetivos, crenças, emoções e relações sociais para decisões coerentes.
+
+```java
+public class CharacterModel {
+
+    private StoryEntityId characterId;
+    private List<CharacterGoal> goals;
+    private List<CharacterBelief> beliefs;
+    private CharacterEmotion currentEmotion;
+    private List<SocialRelation> socialRelations;
+    private PhysicalState physicalState;
+    private MentalState mentalState;
+}
+
+public record CharacterGoal(String description, int priority, boolean achieved) {}
+public record CharacterBelief(String statement, float certainty) {}
+public record SocialRelation(StoryEntityId targetId, String relationType, float intensity) {}
+
+public enum PhysicalState { HEALTHY, WOUNDED, CRITICAL, DEAD }
+public enum MentalState  { STABLE, SHAKEN, TRAUMATIZED, INSANE }
+```
+
+---
+
+### 12. Sistema de Consultas Narrativas
+
+```java
+@DomainService
+public class NarrativeQueryService {
+
+    // Quais cenas são possíveis agora?
+    public List<Scene> getAvailableScenes(WorldState state, List<Scene> allScenes) {
+        return allScenes.stream()
+            .filter(s -> s.canExecuteIn(state))
+            .sorted(Comparator.comparing(Scene::getPriority).reversed())
+            .toList();
+    }
+
+    // Quais personagens estão em conflito?
+    public List<StoryEntityId> getCharactersInConflict(WorldState state) { ... }
+
+    // Quais eventos levaram a este estado?
+    public List<NarrativeEvent> getCausalChain(WorldState state, WorldStateVersion from) { ... }
+
+    // Qual personagem possui o artefato?
+    public Optional<StoryEntityId> getPossessorOf(StoryEntityId artifactId, WorldState state) {
+        return state.findFactsWithPredicateAndObject(artifactId, "POSSESSES")
+            .findFirst()
+            .map(FactPredicate::subject);
+    }
+}
+```
+
+---
+
+### 13. Motor Principal (Story Engine)
+
+Serviço de domínio que orquestra todo o ciclo narrativo.
+
+```java
+@DomainService
+public class StoryEngine {
+
+    private final NarrativeValidator validator;
+    private final SceneSelector selector;
+    private final NarrativeQueryService queryService;
+
+    /**
+     * Avança a história executando a próxima cena válida.
+     */
+    public AdvanceResult advanceStory(WorldModel world, NarrativeTimeline timeline,
+                                       List<Scene> allScenes, SelectionStrategy strategy) {
+        var state = world.getCurrentState();
+        var available = queryService.getAvailableScenes(state, allScenes);
+
+        if (available.isEmpty()) return AdvanceResult.noScenesAvailable();
+
+        var selectedScene = selector.select(available, state, strategy)
+            .orElseThrow(() -> new DomainException("Scene selection failed"));
+
+        var conflicts = validator.validate(selectedScene, state);
+        if (!conflicts.isEmpty()) return AdvanceResult.conflicts(conflicts);
+
+        var newState = selectedScene.execute(state);
+        world.applyState(newState);
+        timeline.record(selectedScene, newState);
+
+        return AdvanceResult.success(selectedScene, newState);
+    }
+
+    /**
+     * Simula múltiplos futuros possíveis sem modificar o estado real.
+     */
+    public List<SimulatedFuture> simulateFutures(WorldModel world, List<Scene> allScenes, int depth) {
+        // Cria cópias do estado e simula recursivamente
+    }
+}
+```
+
+---
+
+### 14. Validação Narrativa
+
+```java
+@DomainService
+public class NarrativeValidator {
+
+    private final List<NarrativeRule> rules;
+
+    public List<NarrativeConflict> validate(Scene scene, WorldState state) {
+        // 1. Verifica requisitos da cena
+        var unmetRequirements = scene.getRequirements().stream()
+            .filter(req -> !req.isSatisfiedBy(state))
+            .map(req -> NarrativeConflict.unmetRequirement(scene.getId(), req.describe()))
+            .toList();
+
+        // 2. Aplica todas as regras narrativas
+        var ruleConflicts = rules.stream()
+            .flatMap(rule -> rule.validate(scene, state).stream())
+            .toList();
+
+        return Stream.concat(unmetRequirements.stream(), ruleConflicts.stream()).toList();
+    }
+}
+```
+
+---
+
+### 15. API da Story Engine
+
+Endpoints expostos pela engine narrativa:
+
+```
+POST   /api/v1/stories/{worldId}/advance          → advanceStory()
+GET    /api/v1/stories/{worldId}/scenes/available → getAvailableScenes()
+POST   /api/v1/stories/{worldId}/events           → applyEvent()
+GET    /api/v1/stories/{worldId}/state            → queryWorldState()
+GET    /api/v1/stories/{worldId}/characters/{id}  → getCharacterState()
+POST   /api/v1/stories/{worldId}/seed             → seedNarrative()
+GET    /api/v1/stories/{worldId}/simulate         → simulateFutures()
+GET    /api/v1/stories/{worldId}/timeline         → getNarrativeTimeline()
+GET    /api/v1/stories/{worldId}/conflicts        → detectConflicts()
+```
+
+---
+
+### 16. Persistência da Story Engine
+
+```
+db/migration/
+├── V5__create_world_models.sql         # world_models, world_states
+├── V6__create_story_entities.sql       # story_entities, entity_properties, entity_relations
+├── V7__create_narrative_facts.sql      # narrative_facts
+├── V8__create_scenes.sql               # scenes, scene_requirements, scene_effects
+└── V9__create_narrative_timeline.sql   # narrative_events, simulated_futures
+```
+
+O estado do mundo é persistido a cada avanço narrativo. Fatos ativos, eventos executados e versões de estado são sempre recuperáveis.
+
+---
+
+### 17. Observabilidade da Story Engine
+
+A engine expõe dados de observação via endpoints dedicados:
+
+```
+GET /api/v1/stories/{worldId}/observe/state     → Estado atual do mundo
+GET /api/v1/stories/{worldId}/observe/timeline  → Linha do tempo narrativa
+GET /api/v1/stories/{worldId}/observe/facts     → Fatos ativos
+GET /api/v1/stories/{worldId}/observe/scenes    → Cenas disponíveis
+GET /api/v1/stories/{worldId}/observe/decisions → Decisões tomadas pela engine
+```
+
+---
+
+### 18. Frontend — Story Engine
+
+```
+src/app/features/
+└── story-engine/
+    ├── components/
+    │   ├── world-state-panel/        # Painel de estado atual do mundo
+    │   ├── scene-list/               # Cenas disponíveis
+    │   ├── narrative-timeline/       # Visualização da timeline narrativa
+    │   ├── character-card/           # Estado de um personagem
+    │   └── conflict-alert/           # Conflitos e contradições detectadas
+    ├── services/
+    │   ├── story-engine.service.ts   # Serviço de comunicação com a API
+    │   └── world-state.service.ts    # Estado reativo do mundo (Signals)
+    └── domain/
+        ├── world-state.model.ts
+        ├── scene.model.ts
+        ├── narrative-fact.model.ts
+        └── character-model.model.ts
+```
+
+```typescript
+// domain/world-state.model.ts
+export interface WorldState {
+  version: WorldStateVersion;
+  entitySnapshots: EntitySnapshot[];
+  activeFacts: NarrativeFact[];
+  globalConditions: Record<string, unknown>;
+}
+
+export interface Scene {
+  id: string;
+  narrativeDescription: string;
+  involvedCharacters: string[];
+  priority: number;
+  thematicTags: string[];
+}
+
+export interface NarrativeFact {
+  id: string;
+  subject: string;
+  predicate: string;
+  object?: string;
+  validFrom: Date;
+  validUntil?: Date;
+}
+
+// services/world-state.service.ts
+@Injectable()
+export class WorldStateService {
+
+  private readonly _worldState = signal<WorldState | null>(null);
+  private readonly _availableScenes = signal<Scene[]>([]);
+  private readonly _conflicts = signal<NarrativeConflict[]>([]);
+
+  readonly worldState = this._worldState.asReadonly();
+  readonly availableScenes = this._availableScenes.asReadonly();
+  readonly conflicts = this._conflicts.asReadonly();
+
+  readonly hasConflicts = computed(() => this._conflicts().length > 0);
+
+  loadState(worldId: string): void {
+    this.storyEngineService.queryWorldState(worldId).subscribe(state => {
+      this._worldState.set(state);
+    });
+  }
+}
+```
 
 ---
 
@@ -465,7 +1194,10 @@ src/app/
 ├── domain/                         # Modelos e interfaces (espelha o domínio do backend)
 │   ├── timeline.model.ts
 │   ├── timeline-event.model.ts
-│   └── timeline-connection.model.ts
+│   ├── timeline-connection.model.ts
+│   ├── world-state.model.ts        # Story Engine
+│   ├── scene.model.ts              # Story Engine
+│   └── narrative-fact.model.ts     # Story Engine
 ├── features/                       # Módulos de funcionalidade (lazy loaded)
 │   ├── timeline-canvas/            # Feature principal — canvas visual
 │   │   ├── timeline-canvas.module.ts
@@ -479,7 +1211,11 @@ src/app/
 │   │   │   └── canvas-renderer.service.ts
 │   │   └── store/                  # NgRx (se usado)
 │   ├── timeline-editor/            # Edição de timeline e eventos
-│   └── timeline-list/              # Listagem e busca
+│   ├── timeline-list/              # Listagem e busca
+│   └── story-engine/               # Story Engine UI
+│       ├── components/
+│       ├── services/
+│       └── domain/
 ├── shared/                         # Componentes, pipes, diretivas reutilizáveis
 │   ├── components/
 │   │   ├── button/
@@ -489,9 +1225,14 @@ src/app/
 └── infrastructure/
     └── api/
         ├── timeline-api.service.ts
+        ├── story-engine-api.service.ts  # Story Engine
         └── dto/
             ├── timeline.dto.ts
-            └── create-timeline.dto.ts
+            ├── create-timeline.dto.ts
+            └── story/
+                ├── world-state.dto.ts
+                ├── scene.dto.ts
+                └── advance-story.dto.ts
 ```
 
 ### Modelos de Domínio (Frontend)
@@ -684,6 +1425,9 @@ export class CanvasComponent {
 | Controllers | PascalCase + Controller | `TimelineController` |
 | Angular Services | camelCase + Service | `canvasStateService` |
 | Angular Components | kebab-case (seletor) | `app-timeline-track` |
+| Story Engine — Regras | PascalCase + Rule | `AlivePresenceRule` |
+| Story Engine — Efeitos | PascalCase + Effect | `KillCharacterEffect` |
+| Story Engine — Requisitos | PascalCase + Requirement | `CharacterAliveRequirement` |
 
 ### Regras Gerais
 
@@ -694,6 +1438,8 @@ export class CanvasComponent {
 - Prefira construtores sobre setters nas entidades de domínio
 - Sempre valide no domínio, não só na camada web
 - Testes unitários para domínio e aplicação, testes de integração para infraestrutura
+- Na Story Engine, **nunca execute uma cena sem passar pelo `NarrativeValidator`**
+- Na Story Engine, **nunca modifique `WorldState` diretamente** — use `SceneEffect` e `WorldStateBuilder`
 
 **Frontend:**
 - Use Signals para estado reativo (Angular 17+)
@@ -712,33 +1458,64 @@ export class CanvasComponent {
 test/
 ├── unit/
 │   ├── domain/
-│   │   └── TimelineTest.java           # Testa regras de negócio puras
+│   │   ├── TimelineTest.java
+│   │   ├── story/
+│   │   │   ├── NarrativeFactTest.java
+│   │   │   ├── SceneTest.java
+│   │   │   ├── WorldStateTest.java
+│   │   │   ├── AlivePresenceRuleTest.java
+│   │   │   ├── SceneSelectorTest.java
+│   │   │   └── StoryEngineTest.java
 │   └── application/
-│       └── CreateTimelineUseCaseTest.java  # Testa com mocks dos repositórios
+│       ├── CreateTimelineUseCaseTest.java
+│       └── story/
+│           ├── AdvanceStoryUseCaseTest.java
+│           └── GetAvailableScenesUseCaseTest.java
 └── integration/
     ├── persistence/
-    │   └── TimelineRepositoryAdapterTest.java  # Testa com banco real (Testcontainers)
+    │   ├── TimelineRepositoryAdapterTest.java
+    │   └── story/
+    │       ├── WorldModelRepositoryAdapterTest.java
+    │       └── SceneRepositoryAdapterTest.java
     └── web/
-        └── TimelineControllerTest.java         # Testa endpoints (MockMvc)
+        ├── TimelineControllerTest.java
+        └── story/
+            └── StoryEngineControllerTest.java
 ```
 
 ```java
-// Exemplo de teste de domínio — sem Spring, rápido
-class TimelineTest {
+// Exemplo de teste da Story Engine — sem Spring, rápido
+class StoryEngineTest {
 
-    @Test
-    void shouldCreateTimelineWithValidName() {
-        var timeline = Timeline.create("Saga Matador de Drakars", "Sete livros");
-        assertThat(timeline.getName()).isEqualTo("Saga Matador de Drakars");
-        assertThat(timeline.getEvents()).isEmpty();
-        assertThat(timeline.getDomainEvents()).hasSize(1);
+    private StoryEngine engine;
+    private NarrativeValidator validator;
+    private SceneSelector selector;
+
+    @BeforeEach
+    void setUp() {
+        validator = new NarrativeValidator(List.of(
+            new AlivePresenceRule(),
+            new UniqueEventRule(),
+            new SingleLocationRule()
+        ));
+        selector = new SceneSelector();
+        engine = new StoryEngine(validator, selector, new NarrativeQueryService());
     }
 
     @Test
-    void shouldRejectBlankName() {
-        assertThatThrownBy(() -> Timeline.create("", "desc"))
-            .isInstanceOf(DomainException.class)
-            .hasMessage("Timeline name cannot be blank");
+    void shouldNotExecuteSceneWithDeadCharacter() {
+        var world = WorldModel.createWithSeed(/* ... */);
+        var deadCharacterId = world.findEntityByName("King").getId();
+        world.getCurrentState().applyFact(deadCharacterId, "IS_DEAD");
+
+        var sceneWithDeadKing = Scene.builder()
+            .involvedCharacter(deadCharacterId)
+            .build();
+
+        var result = engine.advanceStory(world, timeline, List.of(sceneWithDeadKing), SelectionStrategy.HIGHEST_PRIORITY);
+
+        assertThat(result.hasConflicts()).isTrue();
+        assertThat(result.getConflicts()).anyMatch(c -> c.getType() == ConflictType.DEAD_CHARACTER_IN_SCENE);
     }
 }
 ```
@@ -760,6 +1537,15 @@ describe('CanvasStateService', () => {
 
     service.setZoom(-1);
     expect(service.zoom()).toBe(0.1);
+  });
+});
+
+describe('WorldStateService', () => {
+  it('should compute hasConflicts correctly', () => {
+    const service = new WorldStateService(mockStoryEngineService);
+    expect(service.hasConflicts()).toBe(false);
+    service['_conflicts'].set([mockConflict]);
+    expect(service.hasConflicts()).toBe(true);
   });
 });
 ```
@@ -789,6 +1575,9 @@ chronicle:
     prefix: /api/v1
   cors:
     allowed-origins: ${CORS_ORIGINS:http://localhost:4200}
+  story-engine:
+    default-selection-strategy: HIGHEST_PRIORITY
+    max-simulation-depth: 10
 ```
 
 ### Frontend — `environment.ts`
@@ -843,6 +1632,7 @@ volumes:
 ## Endpoints da API
 
 ```
+# Timeline
 GET    /api/v1/timelines                    → Lista timelines
 POST   /api/v1/timelines                    → Cria timeline
 GET    /api/v1/timelines/{id}               → Busca timeline por ID
@@ -857,6 +1647,20 @@ POST   /api/v1/connections                  → Cria conexão entre eventos
 DELETE /api/v1/connections/{id}             → Remove conexão
 
 GET    /api/v1/timelines/{id}/export        → Exporta timeline (JSON/PDF)
+
+# Story Engine
+POST   /api/v1/stories/{worldId}/advance           → Avança a história
+GET    /api/v1/stories/{worldId}/scenes/available  → Cenas disponíveis
+POST   /api/v1/stories/{worldId}/events            → Aplica evento manualmente
+GET    /api/v1/stories/{worldId}/state             → Estado atual do mundo
+GET    /api/v1/stories/{worldId}/characters/{id}   → Estado de um personagem
+POST   /api/v1/stories/{worldId}/seed              → Inicializa história com seed
+GET    /api/v1/stories/{worldId}/simulate          → Simula futuros possíveis
+GET    /api/v1/stories/{worldId}/timeline          → Linha do tempo narrativa
+GET    /api/v1/stories/{worldId}/conflicts         → Conflitos e contradições detectados
+GET    /api/v1/stories/{worldId}/observe/state     → Observabilidade — estado
+GET    /api/v1/stories/{worldId}/observe/facts     → Observabilidade — fatos ativos
+GET    /api/v1/stories/{worldId}/observe/decisions → Observabilidade — decisões da engine
 ```
 
 ---
@@ -875,6 +1679,10 @@ Quando trabalhar neste projeto, sempre:
 8. **Não vaze DTOs** da infraestrutura para os componentes Angular — use mappers
 9. **Flyway para tudo** — nenhuma mudança de schema sem migration versionada
 10. **Commits semânticos**: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`
+11. **Story Engine — nunca execute uma cena** sem antes chamar `NarrativeValidator.validate()`
+12. **Story Engine — WorldState é imutável** — produza sempre um novo estado via `SceneEffect` e `WorldStateBuilder`
+13. **Story Engine — separe motor de conteúdo** — lógica de simulação nunca deve conhecer cenas ou personagens específicos
+14. **Story Engine — toda modificação de estado** deve ser rastreada na `NarrativeTimeline`
 
 ---
 
@@ -898,3 +1706,13 @@ Quando trabalhar neste projeto, sempre:
 - [ ] Templates de timeline
 - [ ] Importar/exportar JSON
 - [ ] Tags e filtros de eventos
+
+### V4 — Story Engine
+- [ ] World Model CRUD (entidades, fatos, relações)
+- [ ] Sistema de cenas com requisitos e efeitos
+- [ ] Motor de avanço narrativo (`advanceStory`)
+- [ ] Detecção de conflitos e contradições
+- [ ] Painel de observabilidade narrativa no frontend
+- [ ] Seeds narrativas para iniciar histórias
+- [ ] Simulação de futuros possíveis
+- [ ] Linha do tempo narrativa integrada ao canvas visual
